@@ -1,0 +1,40 @@
+CREATE TABLE IF NOT EXISTS SyncQueueEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    operationType TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    retryCount INTEGER NOT NULL DEFAULT 0,
+    lastError TEXT,
+    state TEXT NOT NULL,
+    createdAt INTEGER NOT NULL,
+    lastAttemptAt INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_syncQueue_state ON SyncQueueEntity(state);
+
+selectAll:
+SELECT * FROM SyncQueueEntity ORDER BY createdAt ASC;
+
+selectPending:
+SELECT * FROM SyncQueueEntity WHERE state = 'PENDING' ORDER BY createdAt ASC;
+
+selectByState:
+SELECT * FROM SyncQueueEntity WHERE state = :state ORDER BY createdAt ASC;
+
+countByState:
+SELECT COUNT(*) FROM SyncQueueEntity WHERE state = :state;
+
+enqueue:
+INSERT INTO SyncQueueEntity(id, operationType, payload, retryCount, lastError, state, createdAt, lastAttemptAt)
+VALUES(:id, :operationType, :payload, 0, NULL, 'PENDING', :createdAt, NULL);
+
+markSynced:
+DELETE FROM SyncQueueEntity WHERE id = :id;
+
+markFailed:
+UPDATE SyncQueueEntity SET state = 'FAILED', lastError = :lastError, lastAttemptAt = :lastAttemptAt WHERE id = :id;
+
+incrementRetry:
+UPDATE SyncQueueEntity SET retryCount = retryCount + 1, lastError = :lastError, lastAttemptAt = :lastAttemptAt WHERE id = :id;
+
+resetToPending:
+UPDATE SyncQueueEntity SET state = 'PENDING', retryCount = 0, lastError = NULL WHERE id = :id;

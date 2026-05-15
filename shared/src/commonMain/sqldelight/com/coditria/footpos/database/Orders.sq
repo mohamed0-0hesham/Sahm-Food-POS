@@ -1,0 +1,73 @@
+CREATE TABLE IF NOT EXISTS OrderEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    status TEXT NOT NULL,
+    subtotalCents INTEGER NOT NULL,
+    taxCents INTEGER NOT NULL,
+    discountCents INTEGER NOT NULL,
+    totalCents INTEGER NOT NULL,
+    taxRate REAL NOT NULL,
+    discountReason TEXT,
+    note TEXT,
+    paymentMethod TEXT,
+    paymentAmountCents INTEGER,
+    syncStatus TEXT NOT NULL,
+    createdAt INTEGER NOT NULL,
+    updatedAt INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS OrderItemEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    orderId TEXT NOT NULL,
+    productId TEXT NOT NULL,
+    productName TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    unitPriceCents INTEGER NOT NULL,
+    currency TEXT NOT NULL DEFAULT 'EGP',
+    FOREIGN KEY(orderId) REFERENCES OrderEntity(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_orderItem_order ON OrderItemEntity(orderId);
+CREATE INDEX IF NOT EXISTS idx_order_createdAt ON OrderEntity(createdAt);
+CREATE INDEX IF NOT EXISTS idx_order_syncStatus ON OrderEntity(syncStatus);
+
+selectAllOrders:
+SELECT * FROM OrderEntity ORDER BY createdAt DESC;
+
+selectOrderById:
+SELECT * FROM OrderEntity WHERE id = :id;
+
+selectItemsForOrder:
+SELECT * FROM OrderItemEntity WHERE orderId = :orderId;
+
+selectBySyncStatus:
+SELECT * FROM OrderEntity WHERE syncStatus = :syncStatus ORDER BY createdAt DESC;
+
+upsertOrder:
+INSERT OR REPLACE INTO OrderEntity(
+    id, status, subtotalCents, taxCents, discountCents, totalCents,
+    taxRate, discountReason, note, paymentMethod, paymentAmountCents,
+    syncStatus, createdAt, updatedAt
+) VALUES(
+    :id, :status, :subtotalCents, :taxCents, :discountCents, :totalCents,
+    :taxRate, :discountReason, :note, :paymentMethod, :paymentAmountCents,
+    :syncStatus, :createdAt, :updatedAt
+);
+
+upsertOrderItem:
+INSERT OR REPLACE INTO OrderItemEntity(
+    id, orderId, productId, productName, quantity, unitPriceCents, currency
+) VALUES(
+    :id, :orderId, :productId, :productName, :quantity, :unitPriceCents, :currency
+);
+
+deleteItemsForOrder:
+DELETE FROM OrderItemEntity WHERE orderId = :orderId;
+
+deleteOrder:
+DELETE FROM OrderEntity WHERE id = :id;
+
+updateSyncStatus:
+UPDATE OrderEntity SET syncStatus = :syncStatus, updatedAt = :updatedAt WHERE id = :id;
+
+countBySyncStatus:
+SELECT COUNT(*) FROM OrderEntity WHERE syncStatus = :syncStatus;

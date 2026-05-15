@@ -1,0 +1,36 @@
+CREATE TABLE IF NOT EXISTS ProductEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    priceCents INTEGER NOT NULL,
+    currency TEXT NOT NULL DEFAULT 'EGP',
+    category TEXT,
+    barcode TEXT,
+    imageUrl TEXT,
+    emoji TEXT
+);
+
+selectAll:
+SELECT * FROM ProductEntity ORDER BY name;
+
+selectByCategory:
+SELECT * FROM ProductEntity WHERE category = :category ORDER BY name;
+
+selectById:
+SELECT * FROM ProductEntity WHERE id = :id;
+
+search:
+SELECT * FROM ProductEntity
+WHERE name LIKE ('%' || :query || '%')
+   OR barcode LIKE ('%' || :query || '%')
+ORDER BY name;
+
+distinctCategories:
+SELECT DISTINCT category FROM ProductEntity WHERE category IS NOT NULL ORDER BY category;
+
+upsert:
+INSERT OR REPLACE INTO ProductEntity(id, name, description, priceCents, currency, category, barcode, imageUrl, emoji)
+VALUES(:id, :name, :description, :priceCents, :currency, :category, :barcode, :imageUrl, :emoji);
+
+count:
+SELECT COUNT(*) FROM ProductEntity;
