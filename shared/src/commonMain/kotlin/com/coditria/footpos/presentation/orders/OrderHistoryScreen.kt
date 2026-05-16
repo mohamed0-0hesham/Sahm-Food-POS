@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.History
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -56,7 +54,7 @@ fun OrderHistoryScreen(
         }
         Spacer(Modifier.size(12.dp))
         if (state.orders.isEmpty() && !state.loading) {
-            EmptyState(icon = Icons.Rounded.History, title = "No orders yet", message = "Completed orders will appear here.")
+            EmptyState(glyph = "📋", title = "No orders yet", message = "Completed orders will appear here.")
             return@Column
         }
         LazyColumn(

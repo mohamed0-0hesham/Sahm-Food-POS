@@ -12,18 +12,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.ShoppingCart
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.coditria.footpos.core.designsystem.PosTheme
@@ -165,14 +159,14 @@ private fun TabBar(active: TabKey, pendingSyncCount: Long, onSelect: (TabKey) ->
         horizontalArrangement = Arrangement.SpaceAround,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TabItem(label = "Sell", icon = Icons.Rounded.ShoppingCart, selected = active == TabKey.Sell, onClick = { onSelect(TabKey.Sell) })
-        TabItem(label = "Orders", icon = Icons.Rounded.History, selected = active == TabKey.Orders, badge = pendingSyncCount.takeIf { it > 0 }?.toString(), onClick = { onSelect(TabKey.Orders) })
-        TabItem(label = "Settings", icon = Icons.Rounded.Settings, selected = active == TabKey.Settings, onClick = { onSelect(TabKey.Settings) })
+        TabItem(label = "Sell", glyph = "🛒", selected = active == TabKey.Sell, onClick = { onSelect(TabKey.Sell) })
+        TabItem(label = "Orders", glyph = "📋", selected = active == TabKey.Orders, badge = pendingSyncCount.takeIf { it > 0 }?.toString(), onClick = { onSelect(TabKey.Orders) })
+        TabItem(label = "Settings", glyph = "⚙", selected = active == TabKey.Settings, onClick = { onSelect(TabKey.Settings) })
     }
 }
 
 @Composable
-private fun TabItem(label: String, icon: ImageVector, selected: Boolean, badge: String? = null, onClick: () -> Unit) {
+private fun TabItem(label: String, glyph: String, selected: Boolean, badge: String? = null, onClick: () -> Unit) {
     val colors = PosTheme.colors
     val color = if (selected) colors.accent else colors.labelSecondary
     Column(
@@ -180,7 +174,7 @@ private fun TabItem(label: String, icon: ImageVector, selected: Boolean, badge: 
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box {
-            Icon(icon, contentDescription = label, tint = color, modifier = Modifier.size(24.dp))
+            Text(glyph, style = PosTheme.typography.title3, color = color)
             if (badge != null) {
                 Box(
                     Modifier

@@ -10,10 +10,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Remove
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -40,7 +36,7 @@ fun QuantityStepper(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         StepperButton(onClick = onDecrement) {
-            Icon(Icons.Rounded.Remove, contentDescription = "Decrement", tint = colors.labelPrimary, modifier = Modifier.size(18.dp))
+            Text("−", style = PosTheme.typography.title3, color = colors.labelPrimary)
         }
         Text(
             text = value.toString(),
@@ -49,7 +45,7 @@ fun QuantityStepper(
             modifier = Modifier.width(28.dp).wrapContentSize(Alignment.Center),
         )
         StepperButton(onClick = onIncrement) {
-            Icon(Icons.Rounded.Add, contentDescription = "Increment", tint = colors.labelPrimary, modifier = Modifier.size(18.dp))
+            Text("+", style = PosTheme.typography.title3, color = colors.labelPrimary)
         }
     }
 }

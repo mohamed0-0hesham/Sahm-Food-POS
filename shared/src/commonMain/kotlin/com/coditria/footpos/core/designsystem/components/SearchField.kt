@@ -1,17 +1,13 @@
 package com.coditria.footpos.core.designsystem.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,19 +35,10 @@ fun SearchField(
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            Icons.Rounded.Search,
-            contentDescription = null,
-            tint = colors.labelTertiary,
-            modifier = Modifier.size(18.dp),
-        )
+        Text("⌕", style = PosTheme.typography.body, color = colors.labelTertiary)
         Box(Modifier.padding(start = 8.dp).fillMaxWidth(if (value.isNotEmpty()) 0.92f else 1f)) {
             if (value.isEmpty()) {
-                Text(
-                    placeholder,
-                    style = PosTheme.typography.body,
-                    color = colors.labelTertiary,
-                )
+                Text(placeholder, style = PosTheme.typography.body, color = colors.labelTertiary)
             }
             BasicTextField(
                 value = value,
@@ -65,12 +52,11 @@ fun SearchField(
             )
         }
         if (value.isNotEmpty()) {
-            Icon(
-                Icons.Rounded.Close,
-                contentDescription = "Clear",
-                tint = colors.labelTertiary,
-                modifier = Modifier.size(18.dp).clip(RoundedCornerShape(50)).padding(2.dp)
-                    .let { it },
+            Text(
+                "✕",
+                style = PosTheme.typography.body,
+                color = colors.labelTertiary,
+                modifier = Modifier.clickable { onValueChange("") }.padding(4.dp),
             )
         }
     }

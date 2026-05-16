@@ -6,12 +6,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.coditria.footpos.core.designsystem.PosTheme
@@ -19,7 +17,7 @@ import com.coditria.footpos.core.designsystem.typography
 
 @Composable
 fun EmptyState(
-    icon: ImageVector,
+    glyph: String,
     title: String,
     message: String,
     modifier: Modifier = Modifier,
@@ -31,7 +29,7 @@ fun EmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = colors.labelTertiary, modifier = Modifier.size(48.dp))
+        Text(glyph, style = PosTheme.typography.largeTitle, color = colors.labelTertiary)
         Spacer(Modifier.size(16.dp))
         Text(title, style = PosTheme.typography.title2, color = colors.labelPrimary, textAlign = TextAlign.Center)
         Spacer(Modifier.size(8.dp))

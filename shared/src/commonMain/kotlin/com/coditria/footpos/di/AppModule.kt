@@ -104,8 +104,8 @@ val sharedModule = module {
     factoryOf(::RetrySyncOperationUseCase)
 
     factory { CatalogViewModel(get(), get(), get(), get(), get()) }
-    factory { CartViewModel(get(), get(), get(), get(), get(), get()) }
-    factory { CheckoutViewModel(get(), get(), get(), get(), get()) }
+    factory { CartViewModel(get(), get(), get(), get(), get(), get(), get()) }
+    factory { CheckoutViewModel(get(), get(), get(), get()) }
     factory { OrderHistoryViewModel(get()) }
     factory { (orderId: com.coditria.footpos.domain.model.OrderId) -> OrderDetailViewModel(orderId, get(), get(), get(), get()) }
     factory { SyncStatusViewModel(get(), get(), get()) }

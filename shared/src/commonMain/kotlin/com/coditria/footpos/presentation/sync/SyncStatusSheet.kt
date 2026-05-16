@@ -15,11 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.CloudOff
-import androidx.compose.material.icons.rounded.WarningAmber
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -54,7 +49,7 @@ fun SyncStatusSheet(
         Spacer(Modifier.size(16.dp))
         if (state.operations.isEmpty()) {
             EmptyState(
-                icon = Icons.Rounded.CheckCircle,
+                glyph = "✓",
                 title = "All up to date",
                 message = "There are no pending sync operations.",
             )
@@ -77,11 +72,11 @@ private fun ConnectionRow(online: Boolean) {
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (online) {
-            Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = colors.success)
-        } else {
-            Icon(Icons.Rounded.CloudOff, contentDescription = null, tint = colors.labelSecondary)
-        }
+        Text(
+            if (online) "✓" else "⌀",
+            style = PosTheme.typography.title3,
+            color = if (online) colors.success else colors.labelSecondary,
+        )
         Spacer(Modifier.size(8.dp))
         Text(if (online) "Online" else "Offline", style = PosTheme.typography.headline, color = colors.labelPrimary)
     }
@@ -100,7 +95,7 @@ private fun OperationRow(op: SyncOperation, onRetry: () -> Unit) {
     ) {
         when (op.state) {
             SyncOperationState.PENDING -> Box(Modifier.size(8.dp).clip(RoundedCornerShape(50)).background(colors.warning))
-            SyncOperationState.FAILED -> Icon(Icons.Rounded.WarningAmber, contentDescription = null, tint = colors.destructive)
+            SyncOperationState.FAILED -> Text("⚠", style = PosTheme.typography.body, color = colors.destructive)
         }
         Spacer(Modifier.size(8.dp))
         Column(Modifier.weight(1f)) {

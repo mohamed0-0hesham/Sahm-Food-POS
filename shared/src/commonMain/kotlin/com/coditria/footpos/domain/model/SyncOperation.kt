@@ -1,6 +1,6 @@
 package com.coditria.footpos.domain.model
 
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 enum class SyncOperationState { PENDING, FAILED }
 

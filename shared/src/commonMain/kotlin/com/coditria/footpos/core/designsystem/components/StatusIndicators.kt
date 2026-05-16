@@ -8,29 +8,25 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.CloudOff
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.WarningAmber
-import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.coditria.footpos.core.designsystem.PosTheme
+import com.coditria.footpos.core.designsystem.typography
 import com.coditria.footpos.domain.model.SyncStatus
 
 @Composable
 fun SyncStatusIcon(status: SyncStatus, modifier: Modifier = Modifier) {
     val colors = PosTheme.colors
     when (status) {
-        SyncStatus.SYNCED -> IconBadge(Icons.Rounded.CheckCircle, colors.success, modifier)
-        SyncStatus.PENDING -> RotatingIcon(Icons.Rounded.Refresh, colors.warning, modifier)
-        SyncStatus.FAILED -> IconBadge(Icons.Rounded.WarningAmber, colors.destructive, modifier)
+        SyncStatus.SYNCED -> StatusGlyph("✓", colors.success, modifier)
+        SyncStatus.PENDING -> RotatingGlyph("↻", colors.warning, modifier)
+        SyncStatus.FAILED -> StatusGlyph("⚠", colors.destructive, modifier)
     }
 }
 
@@ -38,17 +34,17 @@ fun SyncStatusIcon(status: SyncStatus, modifier: Modifier = Modifier) {
 fun OfflineBadge(modifier: Modifier = Modifier) {
     val colors = PosTheme.colors
     Row(modifier.padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Rounded.CloudOff, contentDescription = "Offline", tint = colors.labelSecondary, modifier = Modifier.size(16.dp))
+        Text("⌀", color = colors.labelSecondary, style = PosTheme.typography.subhead)
     }
 }
 
 @Composable
-private fun IconBadge(icon: ImageVector, tint: androidx.compose.ui.graphics.Color, modifier: Modifier) {
-    Icon(icon, contentDescription = null, tint = tint, modifier = modifier.size(16.dp))
+private fun StatusGlyph(text: String, tint: Color, modifier: Modifier) {
+    Text(text, style = PosTheme.typography.subhead, color = tint, modifier = modifier)
 }
 
 @Composable
-private fun RotatingIcon(icon: ImageVector, tint: androidx.compose.ui.graphics.Color, modifier: Modifier) {
+private fun RotatingGlyph(text: String, tint: Color, modifier: Modifier) {
     val transition = rememberInfiniteTransition(label = "sync-rotate")
     val angle by transition.animateFloat(
         initialValue = 0f,
@@ -59,5 +55,5 @@ private fun RotatingIcon(icon: ImageVector, tint: androidx.compose.ui.graphics.C
         ),
         label = "angle",
     )
-    Icon(icon, contentDescription = null, tint = tint, modifier = modifier.size(16.dp).rotate(angle))
+    Text(text, style = PosTheme.typography.subhead, color = tint, modifier = modifier.rotate(angle))
 }

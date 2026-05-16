@@ -26,7 +26,7 @@ class ProductRepositoryImpl(
 
     override fun observeCategories(): Flow<List<String>> =
         queries.distinctCategories().asFlow().mapToList(dispatchers.io)
-            .map { it.mapNotNull { row -> row.category } }
+            .map { rows -> rows.filterNotNull() }
 
     override suspend fun getById(id: ProductId): Product? = withContext(dispatchers.io) {
         queries.selectById(id.value).executeAsOneOrNull()?.toDomain()

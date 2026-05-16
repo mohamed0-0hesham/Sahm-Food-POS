@@ -1,12 +1,13 @@
 package com.coditria.footpos.presentation.orders
 
+import com.coditria.footpos.core.common.now
+
 import androidx.lifecycle.viewModelScope
 import com.coditria.footpos.domain.model.Order
 import com.coditria.footpos.domain.usecase.ObserveOrderHistoryUseCase
 import com.coditria.footpos.presentation.shared.MviViewModel
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
@@ -23,9 +24,9 @@ data class OrderHistoryState(
     val grouped: List<Pair<String, List<Order>>>
         get() {
             val zone = TimeZone.currentSystemDefault()
-            val now = Clock.System.now().toLocalDateTime(zone).date
-            val yesterday = Clock.System.now().minus(1, DateTimeUnit.DAY, zone).toLocalDateTime(zone).date
-            val weekAgo = Clock.System.now().minus(7, DateTimeUnit.DAY, zone).toLocalDateTime(zone).date
+            val now = now().toLocalDateTime(zone).date
+            val yesterday = now().minus(1, DateTimeUnit.DAY, zone).toLocalDateTime(zone).date
+            val weekAgo = now().minus(7, DateTimeUnit.DAY, zone).toLocalDateTime(zone).date
 
             val filtered = orders
                 .asSequence()

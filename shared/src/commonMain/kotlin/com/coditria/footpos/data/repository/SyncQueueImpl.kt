@@ -1,5 +1,7 @@
 package com.coditria.footpos.data.repository
 
+import com.coditria.footpos.core.common.now
+
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOne
@@ -13,8 +15,7 @@ import com.coditria.footpos.domain.repository.SyncQueue
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import kotlinx.datetime.Clock
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -52,11 +53,11 @@ class SyncQueueImpl(
     }
 
     override suspend fun markFailed(operationId: String, error: String) = withContext(dispatchers.io) {
-        queries.markFailed(error, Clock.System.now().toEpochMilliseconds(), operationId)
+        queries.markFailed(error, now().toEpochMilliseconds(), operationId)
     }
 
     override suspend fun incrementRetry(operationId: String, error: String) = withContext(dispatchers.io) {
-        queries.incrementRetry(error, Clock.System.now().toEpochMilliseconds(), operationId)
+        queries.incrementRetry(error, now().toEpochMilliseconds(), operationId)
     }
 
     override suspend fun retry(operationId: String) = withContext(dispatchers.io) {

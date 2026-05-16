@@ -1,8 +1,9 @@
 package com.coditria.footpos.domain.model
 
+import com.coditria.footpos.core.common.now
+
 import com.coditria.footpos.core.common.Uuid
-import kotlinx.datetime.Clock
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlin.jvm.JvmInline
 
 @JvmInline
@@ -79,7 +80,7 @@ data class Order(
         )
 
     companion object {
-        fun newDraft(now: Instant = Clock.System.now()): Order = Order(
+        fun newDraft(now: Instant = now()): Order = Order(
             id = OrderId.generate(),
             items = emptyList(),
             createdAt = now,

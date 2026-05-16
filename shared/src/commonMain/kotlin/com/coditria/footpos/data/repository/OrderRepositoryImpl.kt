@@ -1,5 +1,7 @@
 package com.coditria.footpos.data.repository
 
+import com.coditria.footpos.core.common.now
+
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import com.coditria.footpos.core.common.AppError
@@ -16,7 +18,6 @@ import com.coditria.footpos.domain.repository.OrderRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import kotlinx.datetime.Clock
 
 class OrderRepositoryImpl(
     private val database: PosDatabase,
@@ -81,7 +82,7 @@ class OrderRepositoryImpl(
 
     override suspend fun updateSyncStatus(id: OrderId, status: SyncStatus): Result<Unit> = runCatching {
         withContext(dispatchers.io) {
-            orderQueries.updateSyncStatus(status.name, Clock.System.now().toEpochMilliseconds(), id.value)
+            orderQueries.updateSyncStatus(status.name, now().toEpochMilliseconds(), id.value)
         }
     }.fold(
         onSuccess = { Result.Success(Unit) },

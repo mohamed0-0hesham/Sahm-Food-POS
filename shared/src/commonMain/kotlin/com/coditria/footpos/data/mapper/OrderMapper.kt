@@ -15,7 +15,7 @@ import com.coditria.footpos.domain.model.Product
 import com.coditria.footpos.domain.model.ProductId
 import com.coditria.footpos.domain.model.SyncStatus
 import com.coditria.footpos.domain.model.TaxRate
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 internal fun OrderEntity.toDomain(items: List<OrderItem>): Order = Order(
     id = OrderId(id),
