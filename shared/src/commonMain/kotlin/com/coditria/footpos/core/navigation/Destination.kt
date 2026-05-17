@@ -15,7 +15,16 @@ sealed interface Destination {
     }
     sealed interface Modal : Destination {
         object Checkout : Modal
-        data class Receipt(val orderId: OrderId, val printedText: String?) : Modal
+        /**
+         * @param completesCheckout when true, tapping "Done" returns the cashier to the Sell
+         * catalog (Flow A: Standard Sale). When false (e.g. opened via Order Detail → Reprint),
+         * "Done" just dismisses the sheet, leaving the cashier where they were.
+         */
+        data class Receipt(
+            val orderId: OrderId,
+            val printedText: String?,
+            val completesCheckout: Boolean = false,
+        ) : Modal
         object Discount : Modal
         object SyncStatus : Modal
         data class ProductDetail(val productIdValue: String) : Modal

@@ -62,8 +62,11 @@ fun CatalogScreen(
                 selected = state.selectedCategory,
                 onSelect = catalogVm::onCategorySelected,
             )
+            // Map product id → quantity in cart, so each card can show a badge.
+            val cartQuantities = state.cart.items.associate { it.product.id.value to it.quantity }
             ProductGrid(
                 products = state.visibleProducts,
+                cartQuantities = cartQuantities,
                 isTablet = isTablet,
                 onTap = catalogVm::onProductTapped,
                 onLongPress = catalogVm::onProductLongPressed,
@@ -142,6 +145,7 @@ private fun CategoryStrip(
 @Composable
 private fun ProductGrid(
     products: List<Product>,
+    cartQuantities: Map<String, Int>,
     isTablet: Boolean,
     onTap: (Product) -> Unit,
     onLongPress: (Product) -> Unit,
@@ -155,43 +159,78 @@ private fun ProductGrid(
         modifier = modifier.fillMaxSize(),
     ) {
         items(products, key = { it.id.value }) { product ->
-            ProductCard(product = product, onTap = { onTap(product) }, onLongPress = { onLongPress(product) })
+            ProductCard(
+                product = product,
+                quantityInCart = cartQuantities[product.id.value] ?: 0,
+                onTap = { onTap(product) },
+                onLongPress = { onLongPress(product) },
+            )
         }
     }
 }
 
 @Composable
-fun ProductCard(product: Product, onTap: () -> Unit, onLongPress: () -> Unit) {
+fun ProductCard(
+    product: Product,
+    quantityInCart: Int,
+    onTap: () -> Unit,
+    onLongPress: () -> Unit,
+) {
     val colors = PosTheme.colors
-    Column(
-        Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(colors.backgroundTertiary)
-            .clickable(onClick = onTap),
-    ) {
-        Box(
-            Modifier.fillMaxWidth().aspectRatio(1f).background(colors.backgroundSecondary),
-            contentAlignment = Alignment.Center,
+    // Wrap the card in an outer Box so the quantity badge can float over the top-right corner.
+    Box {
+        Column(
+            Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .background(colors.backgroundTertiary)
+                .clickable(onClick = onTap),
         ) {
-            Text(product.emoji ?: product.name.take(1).uppercase(), style = PosTheme.typography.largeTitle)
+            Box(
+                Modifier.fillMaxWidth().aspectRatio(1f).background(colors.backgroundSecondary),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(product.emoji ?: product.name.take(1).uppercase(), style = PosTheme.typography.largeTitle)
+            }
+            Column(Modifier.padding(12.dp)) {
+                Text(
+                    product.name,
+                    style = PosTheme.typography.headline,
+                    color = colors.labelPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(product.price.format(), style = PosTheme.typography.subhead, color = colors.labelSecondary)
+            }
         }
-        Column(Modifier.padding(12.dp)) {
-            Text(
-                product.name,
-                style = PosTheme.typography.headline,
-                color = colors.labelPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+        if (quantityInCart > 0) {
+            QuantityBadge(
+                count = quantityInCart,
+                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
             )
-            Spacer(Modifier.height(2.dp))
-            Text(product.price.format(), style = PosTheme.typography.subhead, color = colors.labelSecondary)
         }
     }
-    // Long-press on a product card opens detail; gesture detection is added in the modifier above.
-    // Compose Multiplatform's combinedClickable is a fit, but we keep tap-only here and use the
-    // detail modal as an alternative path through the ProductCard menu in tablet contexts.
-    // (Keeping pure-onClick for predictable touch behavior on busy POS hardware.)
+    // Long-press handler is wired upstream — kept in the signature for the upcoming
+    // combinedClickable migration so callers don't need to change later.
     @Suppress("UNUSED_EXPRESSION") onLongPress
+}
+
+@Composable
+private fun QuantityBadge(count: Int, modifier: Modifier = Modifier) {
+    val colors = PosTheme.colors
+    Box(
+        modifier
+            .clip(RoundedCornerShape(50))
+            .background(colors.accent)
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            count.toString(),
+            style = PosTheme.typography.subhead,
+            color = androidx.compose.ui.graphics.Color.White,
+        )
+    }
 }
 
 @Composable

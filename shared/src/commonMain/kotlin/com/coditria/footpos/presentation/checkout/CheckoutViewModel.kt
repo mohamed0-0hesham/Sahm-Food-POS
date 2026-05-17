@@ -89,7 +89,13 @@ class CheckoutViewModel(
                 } else null
                 updateState { it.copy(processing = false) }
                 navigator.dismissModal()
-                navigator.showModal(Destination.Modal.Receipt(res.value.id, printed))
+                navigator.showModal(
+                    Destination.Modal.Receipt(
+                        orderId = res.value.id,
+                        printedText = printed,
+                        completesCheckout = true,
+                    )
+                )
                 emitEffect(CheckoutEffect.OrderCompleted(res.value, printed))
             }
             is Result.Failure -> {

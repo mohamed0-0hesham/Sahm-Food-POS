@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -56,7 +58,9 @@ fun RootScreen(
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val isTablet = maxWidth >= 600.dp
-        Column(Modifier.fillMaxSize()) {
+        // statusBarsPadding keeps content below the status bar; navigationBarsPadding sits the
+        // tab bar above the system nav bar / home indicator.
+        Column(Modifier.fillMaxSize().statusBarsPadding()) {
             Box(Modifier.weight(1f)) {
                 TabContent(
                     tab = navState.activeTab,
@@ -65,7 +69,9 @@ fun RootScreen(
                     navigator = navigator,
                 )
             }
-            TabBar(active = navState.activeTab, pendingSyncCount = rootState.pendingSyncCount, onSelect = navigator::selectTab)
+            Box(Modifier.navigationBarsPadding()) {
+                TabBar(active = navState.activeTab, pendingSyncCount = rootState.pendingSyncCount, onSelect = navigator::selectTab)
+            }
         }
         navState.modal?.let { modal ->
             ModalScrim(onDismiss = navigator::dismissModal) {
@@ -119,8 +125,16 @@ private fun ModalContent(modal: Destination.Modal, navigator: Navigator) {
         Destination.Modal.Checkout -> CheckoutSheet()
         is Destination.Modal.Receipt -> ReceiptSheet(
             printedText = modal.printedText,
-            onDone = { navigator.dismissModal() },
-            onReprint = { /* trigger reprint via OrderDetailViewModel route; out of scope for this sheet */ },
+            onDone = {
+                navigator.dismissModal()
+                if (modal.completesCheckout) {
+                    // Flow A: end of sale — drop any in-progress screens (e.g. phone Cart) and
+                    // land the cashier back on the catalog ready for the next order.
+                    navigator.selectTab(TabKey.Sell)
+                    navigator.popToRoot()
+                }
+            },
+            onReprint = { /* reprint is triggered from OrderDetailViewModel; nothing to do here */ },
         )
         Destination.Modal.Discount -> DiscountSheet(onDismiss = { navigator.dismissModal() })
         Destination.Modal.SyncStatus -> SyncStatusSheet(onDismiss = { navigator.dismissModal() })
@@ -144,6 +158,8 @@ private fun ModalScrim(onDismiss: () -> Unit, content: @Composable () -> Unit) {
         Box(
             Modifier
                 .fillMaxWidth()
+                .imePadding()
+                .navigationBarsPadding()
                 .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                 .background(colors.backgroundPrimary)
                 .clickable(enabled = false) {},
