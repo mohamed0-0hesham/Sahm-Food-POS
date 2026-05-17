@@ -73,6 +73,8 @@ kotlin {
             implementation(libs.kotlinx.serialization.json)
 
             implementation(libs.napier)
+
+            implementation(libs.multiplatformSettings)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

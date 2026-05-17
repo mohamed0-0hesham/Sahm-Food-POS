@@ -20,6 +20,7 @@ datetime = "0.7.1"
 serialization = "1.7.3"
 napier = "2.7.1"
 turbine = "1.2.1"
+multiplatformSettings = "1.2.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -59,6 +60,8 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 
 napier = { module = "io.github.aakira:napier", version.ref = "napier" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
+
+multiplatformSettings = { module = "com.russhwolf:multiplatform-settings", version.ref = "multiplatformSettings" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

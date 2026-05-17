@@ -9,6 +9,7 @@ import com.coditria.footpos.domain.model.Order
 import com.coditria.footpos.domain.model.Payment
 import com.coditria.footpos.domain.model.PaymentMethod
 import com.coditria.footpos.domain.usecase.CompleteOrderUseCase
+import com.coditria.footpos.domain.usecase.GetSettingsUseCase
 import com.coditria.footpos.domain.usecase.ObserveCartUseCase
 import com.coditria.footpos.domain.usecase.PrintReceiptUseCase
 import com.coditria.footpos.presentation.shared.MviViewModel
@@ -42,8 +43,8 @@ class CheckoutViewModel(
     observeCart: ObserveCartUseCase,
     private val completeOrder: CompleteOrderUseCase,
     private val printReceipt: PrintReceiptUseCase,
+    private val getSettings: GetSettingsUseCase,
     private val navigator: Navigator,
-    private val autoPrint: Boolean = true,
 ) : MviViewModel<CheckoutState, CheckoutEffect>() {
 
     override fun initialState() = CheckoutState()
@@ -81,7 +82,7 @@ class CheckoutViewModel(
         val payment = Payment(state.paymentMethod, tendered)
         when (val res = completeOrder(payment)) {
             is Result.Success -> {
-                val printed = if (autoPrint) {
+                val printed = if (getSettings().autoPrintReceipts) {
                     when (val print = printReceipt(res.value)) {
                         is Result.Success -> print.value
                         is Result.Failure -> null
