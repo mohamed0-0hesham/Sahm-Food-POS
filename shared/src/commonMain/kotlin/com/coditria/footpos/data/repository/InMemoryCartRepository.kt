@@ -1,26 +1,46 @@
 package com.coditria.footpos.data.repository
 
 import com.coditria.footpos.core.common.now
-
+import com.coditria.footpos.domain.model.AppSettings
 import com.coditria.footpos.domain.model.Discount
 import com.coditria.footpos.domain.model.Money
 import com.coditria.footpos.domain.model.Order
 import com.coditria.footpos.domain.model.OrderItem
 import com.coditria.footpos.domain.model.Product
 import com.coditria.footpos.domain.repository.CartRepository
+import com.coditria.footpos.domain.repository.SettingsRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 
 /**
  * In-memory cart. Single-cashier, single-cart-at-a-time POS — no need to persist drafts.
- * If we later want crash recovery for drafts, swap this for a DB-backed implementation
- * without changing any caller.
+ *
+ * Listens to [SettingsRepository] so the active draft's tax rate always reflects the
+ * cashier's current configuration; cleared carts get the same rate.
  */
-class InMemoryCartRepository : CartRepository {
+class InMemoryCartRepository(
+    settings: SettingsRepository,
+    scope: CoroutineScope,
+) : CartRepository {
 
-    private val state: MutableStateFlow<Order> = MutableStateFlow(Order.newDraft())
+    private val state: MutableStateFlow<Order> = MutableStateFlow(
+        Order.newDraft().copy(taxRate = AppSettings.DEFAULT.taxRate),
+    )
+
+    init {
+        settings.observe()
+            .map { it.taxRate }
+            .distinctUntilChanged()
+            .onEach { rate -> state.update { order -> order.copy(taxRate = rate, updatedAt = now()) } }
+            .launchIn(scope)
+    }
 
     fun stream(): StateFlow<Order> = state.asStateFlow()
 
@@ -80,6 +100,7 @@ class InMemoryCartRepository : CartRepository {
     }
 
     override suspend fun clear() {
-        state.value = Order.newDraft()
+        val currentRate = state.value.taxRate
+        state.value = Order.newDraft().copy(taxRate = currentRate)
     }
 }

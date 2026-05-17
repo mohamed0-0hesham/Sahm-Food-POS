@@ -20,6 +20,8 @@ datetime = "0.7.1"
 serialization = "1.7.3"
 napier = "2.7.1"
 turbine = "1.2.1"
+datastore = "1.1.1"
+okio = "3.9.1"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -59,6 +61,9 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 
 napier = { module = "io.github.aakira:napier", version.ref = "napier" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
+
+androidx-datastore-preferences-core = { module = "androidx.datastore:datastore-preferences-core", version.ref = "datastore" }
+okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
