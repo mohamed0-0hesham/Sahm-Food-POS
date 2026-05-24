@@ -57,8 +57,10 @@ import kotlinx.coroutines.delay
 fun BestSellersCarousel(
     sellers: List<Pair<Product, Int>>,
     cartQuantities: Map<String, Int>,
+    /** Add the product to the cart (the small "+ Add" pill on the hero card). */
     onAdd: (Product) -> Unit,
-    onLongPress: (Product) -> Unit,
+    /** Tap on the hero image or anywhere else on the card opens the detail sheet. */
+    onOpenDetail: (Product) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (sellers.isEmpty()) return
@@ -109,7 +111,7 @@ fun BestSellersCarousel(
                 soldCount = sold,
                 quantityInCart = qty,
                 onAdd = { onAdd(product) },
-                onLongPress = { onLongPress(product) },
+                onOpenDetail = { onOpenDetail(product) },
             )
         }
         Spacer(Modifier.height(10.dp))
@@ -124,7 +126,7 @@ private fun HeroCard(
     soldCount: Int,
     quantityInCart: Int,
     onAdd: () -> Unit,
-    onLongPress: () -> Unit,
+    onOpenDetail: () -> Unit,
 ) {
     val colors = PosTheme.colors
     Box(
@@ -133,21 +135,24 @@ private fun HeroCard(
             .aspectRatio(16f / 10f)
             .clip(PosTheme.shapes.lg)
             .background(colors.backgroundSecondary)
-            .clickable(onClick = onAdd),
+            // Tap the card → open detail. The accent + Add pill (below) is the
+            // only surface that adds straight to the cart.
+            .clickable(onClick = onOpenDetail),
     ) {
         ProductThumbnail(
             product = product,
             modifier = Modifier.fillMaxSize(),
         )
-        // Bottom-up gradient scrim so the text overlay stays readable across any
-        // product imagery — premium food/eCommerce apps lean on this pattern.
+        // Soft bottom scrim — only enough to keep the overlay text legible. We
+        // start the fade later (~55%) and end at a milder alpha (0.45) so the
+        // product photo stays the hero rather than getting buried in darkness.
         Box(
             Modifier
                 .fillMaxSize()
                 .drawWithCache {
                     val brush = Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f)),
-                        startY = size.height * 0.35f,
+                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.45f)),
+                        startY = size.height * 0.55f,
                         endY = size.height,
                     )
                     onDrawBehind { drawRect(brush) }
@@ -229,7 +234,6 @@ private fun HeroCard(
             AddPill(onClick = onAdd)
         }
     }
-    @Suppress("UNUSED_EXPRESSION") onLongPress
 }
 
 @Composable

@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,10 +26,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,7 +42,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.coditria.footpos.core.designsystem.PosMotion
 import com.coditria.footpos.core.designsystem.PosTheme
-import androidx.compose.foundation.shape.CircleShape
 import com.coditria.footpos.core.designsystem.components.CategoryPill
 import com.coditria.footpos.core.designsystem.components.EmptyState
 import com.coditria.footpos.core.designsystem.components.ProductThumbnail
@@ -55,6 +53,7 @@ import com.coditria.footpos.presentation.cart.CartSidePanel
 import com.coditria.footpos.presentation.cart.CartViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CatalogScreen(
     isTablet: Boolean,
@@ -65,50 +64,112 @@ fun CatalogScreen(
 ) {
     val state by catalogVm.state.collectAsStateWithLifecycle()
     val colors = PosTheme.colors
+    val cartQuantities = state.cart.items.associate { it.product.id.value to it.quantity }
+    val columns = if (isTablet) 4 else 2
 
     Row(Modifier.fillMaxSize().background(colors.backgroundPrimary)) {
         Column(Modifier.weight(1f)) {
-            val cartQuantities = state.cart.items.associate { it.product.id.value to it.quantity }
-            CatalogHeader(
-                query = state.searchQuery,
-                online = state.online,
-                onQueryChange = catalogVm::onSearchChanged,
-                onOpenSync = onOpenSyncStatus,
-            )
-            // Best Sellers ride above the category strip on the phone layout — the
-            // tablet keeps the strip-then-grid composition since the side-panel
-            // already provides a hero focal area on the right.
-            if (!isTablet && state.bestSellers.isNotEmpty()) {
-                Spacer(Modifier.size(8.dp))
-                BestSellersCarousel(
-                    sellers = state.bestSellers,
-                    cartQuantities = cartQuantities,
-                    onAdd = catalogVm::onProductTapped,
-                    onLongPress = catalogVm::onProductLongPressed,
-                )
-                Spacer(Modifier.size(12.dp))
-            }
-            CategoryStrip(
-                categories = state.categories,
-                selected = state.selectedCategory,
-                onSelect = catalogVm::onCategorySelected,
-            )
-            Box(Modifier.weight(1f)) {
-                if (state.visibleProducts.isEmpty()) {
-                    CatalogEmptyState(
-                        hasAnyProducts = state.products.isNotEmpty(),
-                        hasQuery = state.searchQuery.isNotBlank(),
-                    )
-                } else {
-                    ProductGrid(
-                        products = state.visibleProducts,
-                        cartQuantities = cartQuantities,
-                        isTablet = isTablet,
-                        onTap = catalogVm::onProductTapped,
-                        onLongPress = catalogVm::onProductLongPressed,
+            // Single scrollable surface for the whole catalog. Putting the header
+            // and Best Sellers as plain `item`s lets them scroll up out of view,
+            // while `stickyHeader` keeps the category strip pinned at the top as
+            // the cashier moves down through the grid.
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentPadding = PaddingValues(bottom = 24.dp),
+            ) {
+                item(key = "header") {
+                    CatalogHeader(
+                        query = state.searchQuery,
+                        online = state.online,
+                        onQueryChange = catalogVm::onSearchChanged,
+                        onOpenSync = onOpenSyncStatus,
                     )
                 }
+                if (!isTablet && state.bestSellers.isNotEmpty()) {
+                    item(key = "bestsellers") {
+                        Column {
+                            Spacer(Modifier.size(8.dp))
+                            BestSellersCarousel(
+                                sellers = state.bestSellers,
+                                cartQuantities = cartQuantities,
+                                onAdd = catalogVm::onProductTapped,
+                                onOpenDetail = catalogVm::onProductLongPressed,
+                            )
+                            Spacer(Modifier.size(12.dp))
+                        }
+                    }
+                }
+                // Sticky filter — opaque background so cards scrolling underneath
+                // don't bleed through. The bottom border separates it from the grid
+                // once it's pinned.
+                stickyHeader(key = "categories") {
+                    Column(Modifier.background(colors.backgroundPrimary)) {
+                        CategoryStrip(
+                            categories = state.categories,
+                            selected = state.selectedCategory,
+                            onSelect = catalogVm::onCategorySelected,
+                        )
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(colors.separator),
+                        )
+                    }
+                }
+
+                if (state.visibleProducts.isEmpty()) {
+                    item(key = "empty") {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(380.dp),
+                        ) {
+                            CatalogEmptyState(
+                                hasAnyProducts = state.products.isNotEmpty(),
+                                hasQuery = state.searchQuery.isNotBlank(),
+                            )
+                        }
+                    }
+                } else {
+                    // Chunk the products into rows so each row is one LazyColumn item.
+                    // Keeps the grid visual while letting us reuse LazyColumn's sticky
+                    // header. Each row is keyed by the first product id so Compose can
+                    // reuse items efficiently as the grid changes.
+                    val rows = state.visibleProducts.chunked(columns)
+                    item(key = "grid-top-pad") { Spacer(Modifier.size(12.dp)) }
+                    items(
+                        items = rows,
+                        key = { row -> "row-" + row.first().id.value },
+                    ) { row ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 7.dp),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        ) {
+                            row.forEach { product ->
+                                Box(Modifier.weight(1f)) {
+                                    ProductCard(
+                                        product = product,
+                                        quantityInCart = cartQuantities[product.id.value] ?: 0,
+                                        onOpenDetail = { catalogVm.onProductLongPressed(product) },
+                                        onAdd = { catalogVm.onProductTapped(product) },
+                                    )
+                                }
+                            }
+                            // Pad the last partial row with empty weighted cells so
+                            // the final card doesn't stretch to fill the row.
+                            repeat(columns - row.size) {
+                                Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
             }
+
             // Phone-only floating cart bar — animated entrance so adding the first
             // item feels like the cart "rises" into view rather than just appearing.
             if (!isTablet) {
@@ -245,39 +306,21 @@ private fun CatalogEmptyState(
     }
 }
 
-@Composable
-private fun ProductGrid(
-    products: List<Product>,
-    cartQuantities: Map<String, Int>,
-    isTablet: Boolean,
-    onTap: (Product) -> Unit,
-    onLongPress: (Product) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(if (isTablet) 4 else 2),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-        modifier = modifier.fillMaxSize(),
-    ) {
-        items(products, key = { it.id.value }) { product ->
-            ProductCard(
-                product = product,
-                quantityInCart = cartQuantities[product.id.value] ?: 0,
-                onTap = { onTap(product) },
-                onLongPress = { onLongPress(product) },
-            )
-        }
-    }
-}
-
+/**
+ * Modern eCommerce product card with split interaction:
+ *  • Tap the card           → open the [onOpenDetail] sheet (read intent)
+ *  • Tap the floating + pill → [onAdd] adds one to the cart (action intent)
+ *
+ * Splitting these is the standard pattern in Wolt / Glovo / Square — the card
+ * itself is informational, and the explicit + button keeps "add to cart" a
+ * deliberate gesture rather than an accidental tap.
+ */
 @Composable
 fun ProductCard(
     product: Product,
     quantityInCart: Int,
-    onTap: () -> Unit,
-    onLongPress: () -> Unit,
+    onOpenDetail: () -> Unit,
+    onAdd: () -> Unit,
 ) {
     val colors = PosTheme.colors
     val interaction = remember { MutableInteractionSource() }
@@ -293,7 +336,7 @@ fun ProductCard(
             .clip(PosTheme.shapes.lg)
             .background(colors.surfaceElevated)
             .border(width = 1.dp, color = colors.separator, shape = PosTheme.shapes.lg)
-            .clickable(interactionSource = interaction, indication = null, onClick = onTap),
+            .clickable(interactionSource = interaction, indication = null, onClick = onOpenDetail),
     ) {
         Column {
             Box {
@@ -310,6 +353,15 @@ fun ProductCard(
                         modifier = Modifier.align(Alignment.TopEnd).padding(10.dp),
                     )
                 }
+                // Floating accent + button, bottom-right of the image. Sits on its
+                // own interaction surface so tapping it doesn't trigger the card's
+                // open-detail click.
+                AddPillButton(
+                    onClick = onAdd,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(10.dp),
+                )
             }
             Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
                 Text(
@@ -337,7 +389,33 @@ fun ProductCard(
             }
         }
     }
-    @Suppress("UNUSED_EXPRESSION") onLongPress
+}
+
+@Composable
+private fun AddPillButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = PosTheme.colors
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.90f else 1f,
+        animationSpec = PosMotion.tweenFast(),
+        label = "add-press",
+    )
+    Box(
+        modifier
+            .scale(scale)
+            .size(38.dp)
+            .clip(CircleShape)
+            .background(colors.accent)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("+", style = PosTheme.typography.title2, color = colors.onAccent)
+    }
 }
 
 @Composable

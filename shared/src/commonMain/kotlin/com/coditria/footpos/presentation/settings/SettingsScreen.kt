@@ -75,6 +75,14 @@ fun SettingsScreen(
             Text(state.settings.storeName, style = PosTheme.typography.body, color = colors.labelSecondary)
         }
 
+        // Owner snapshot for today — sits above the configuration sections because
+        // it's a read-target (cashiers glance, owners care), not an action target.
+        Column {
+            SectionLabel(text = "Today")
+            Spacer(Modifier.size(8.dp))
+            OwnerDashboardCard(stats = state.today)
+        }
+
         Section(label = "Store") {
             SettingsRow(
                 title = "Store name",
