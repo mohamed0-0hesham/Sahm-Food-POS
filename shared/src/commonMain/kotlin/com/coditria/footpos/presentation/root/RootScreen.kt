@@ -52,10 +52,11 @@ fun RootScreen(
     val rootState by rootVm.state.collectAsStateWithLifecycle()
     val navState by navigator.state.collectAsStateWithLifecycle()
 
-    // Splash until product seed completes AND we know whether a user is signed in.
-    // Both are quick, but we gate together so we never flash the auth screen for a
-    // user who's already authenticated.
-    if (rootState.seeding || !rootState.authResolved) {
+    // Splash until we know whether a user is signed in — gating here so we never
+    // flash the auth screen for a user who's already authenticated. The catalog
+    // populates from the local cache, which may be empty offline-first until the
+    // background refresh kicked off in RootViewModel completes.
+    if (!rootState.authResolved) {
         SplashScreen()
         return
     }

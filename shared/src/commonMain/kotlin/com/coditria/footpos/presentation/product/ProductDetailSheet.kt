@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.coditria.footpos.core.designsystem.PosTheme
 import com.coditria.footpos.core.designsystem.components.PrimaryButton
+import com.coditria.footpos.core.designsystem.components.ProductThumbnail
 import com.coditria.footpos.core.designsystem.components.QuantityStepper
 import com.coditria.footpos.core.designsystem.components.TertiaryButton
 import com.coditria.footpos.core.designsystem.typography
@@ -54,16 +55,13 @@ fun ProductDetailSheet(
     val p = product ?: return
 
     Column(Modifier.fillMaxWidth().background(colors.backgroundPrimary).padding(20.dp)) {
-        Box(
-            Modifier
+        ProductThumbnail(
+            product = p,
+            modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(2.5f)
-                .clip(RoundedCornerShape(12.dp))
-                .background(colors.backgroundSecondary),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(p.emoji ?: p.name.take(1), style = PosTheme.typography.largeTitle)
-        }
+                .clip(RoundedCornerShape(12.dp)),
+        )
         Spacer(Modifier.size(16.dp))
         Text(p.name, style = PosTheme.typography.title2, color = colors.labelPrimary)
         p.description?.let {

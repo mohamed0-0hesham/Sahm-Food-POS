@@ -14,6 +14,13 @@ interface ProductReader {
 
 interface ProductWriter {
     suspend fun upsert(product: Product): Result<Unit>
+
+    /**
+     * Pulls the catalog from the remote source of truth and persists it locally.
+     * Caller decides when to invoke (app launch, pull-to-refresh). The repository
+     * keeps the local cache as the read source so the UI never blocks on the network.
+     */
+    suspend fun refresh(): Result<Unit>
 }
 
 interface ProductRepository : ProductReader, ProductWriter

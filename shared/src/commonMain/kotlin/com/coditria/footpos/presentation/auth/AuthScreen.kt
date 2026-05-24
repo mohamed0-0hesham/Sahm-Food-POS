@@ -42,6 +42,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.coditria.footpos.core.designsystem.PosTheme
 import com.coditria.footpos.core.designsystem.components.PrimaryButton
 import com.coditria.footpos.core.designsystem.spacing
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.size
+import org.jetbrains.compose.resources.painterResource
+import sahmfood.shared.generated.resources.Res
+import sahmfood.shared.generated.resources.google_icon
 import com.coditria.footpos.core.designsystem.typography
 import kotlinx.coroutines.flow.collectLatest
 import org.koin.compose.viewmodel.koinViewModel
@@ -133,21 +138,24 @@ fun AuthScreen(
             if (state.googleAvailable) {
                 SocialButton(
                     label = "Continue with Google",
-                    glyph = "G",
-                    glyphColor = Color(0xFFEA4335),
                     background = Color.White,
                     contentColor = Color(0xFF1F1F1F),
                     borderColor = colors.separator,
                     loading = state.socialInFlight,
                     onClick = vm::onGoogleClicked,
+                    icon = {
+                        Image(
+                            painter = painterResource(Res.drawable.google_icon),
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    },
                 )
             }
 
             if (state.appleAvailable) {
                 SocialButton(
                     label = "Continue with Apple",
-                    glyph = "",
-                    glyphColor = Color.White,
                     background = Color.Black,
                     contentColor = Color.White,
                     borderColor = Color.Black,
@@ -248,16 +256,20 @@ private fun DividerWithLabel(text: String) {
     }
 }
 
+/**
+ * [icon] is a composable slot rather than a Painter / glyph string so each provider
+ * can supply whatever fits — Google ships a multi-colour webp, Apple may swap in an
+ * SF Symbol or vector later — without growing this signature again.
+ */
 @Composable
 private fun SocialButton(
     label: String,
-    glyph: String,
-    glyphColor: Color,
     background: Color,
     contentColor: Color,
     borderColor: Color,
     loading: Boolean,
     onClick: () -> Unit,
+    icon: (@Composable () -> Unit)? = null,
 ) {
     Box(
         Modifier
@@ -269,8 +281,8 @@ private fun SocialButton(
         contentAlignment = Alignment.Center,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (glyph.isNotEmpty()) {
-                Text(glyph, style = PosTheme.typography.headline, color = glyphColor)
+            if (icon != null) {
+                icon()
                 Spacer(Modifier.width(10.dp))
             }
             Text(label, style = PosTheme.typography.headline, color = contentColor)

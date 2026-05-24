@@ -1,57 +1,33 @@
 package com.coditria.footpos.data.repository
 
-import app.cash.sqldelight.coroutines.asFlow
-import app.cash.sqldelight.coroutines.mapToList
-import com.coditria.footpos.core.common.AppError
-import com.coditria.footpos.core.common.DispatcherProvider
 import com.coditria.footpos.core.common.Result
-import com.coditria.footpos.data.mapper.toDomain
-import com.coditria.footpos.database.PosDatabase
+import com.coditria.footpos.data.product.local.ProductLocalDataSource
+import com.coditria.footpos.data.product.remote.ProductRemoteDataSource
 import com.coditria.footpos.domain.model.Product
 import com.coditria.footpos.domain.model.ProductId
 import com.coditria.footpos.domain.repository.ProductRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
 
+/**
+ * Read-through cache: the UI observes [local], while [refresh] pulls a fresh snapshot
+ * from [remote] and writes it into [local] in one transaction. Splitting local + remote
+ * keeps the repository ignorant of SQLDelight and Ktor — both are wire-format details
+ * confined to their respective data-source implementations.
+ */
 class ProductRepositoryImpl(
-    private val database: PosDatabase,
-    private val dispatchers: DispatcherProvider,
+    private val local: ProductLocalDataSource,
+    private val remote: ProductRemoteDataSource,
 ) : ProductRepository {
 
-    private val queries = database.productsQueries
+    override fun observeAll(): Flow<List<Product>> = local.observeAll()
+    override fun observeCategories(): Flow<List<String>> = local.observeCategories()
+    override suspend fun getById(id: ProductId): Product? = local.getById(id)
+    override suspend fun search(query: String): List<Product> = local.search(query)
 
-    override fun observeAll(): Flow<List<Product>> =
-        queries.selectAll().asFlow().mapToList(dispatchers.io).map { rows -> rows.map { it.toDomain() } }
+    override suspend fun upsert(product: Product): Result<Unit> = local.upsert(product)
 
-    override fun observeCategories(): Flow<List<String>> =
-        queries.distinctCategories().asFlow().mapToList(dispatchers.io)
-            .map { rows -> rows.filterNotNull() }
-
-    override suspend fun getById(id: ProductId): Product? = withContext(dispatchers.io) {
-        queries.selectById(id.value).executeAsOneOrNull()?.toDomain()
+    override suspend fun refresh(): Result<Unit> = when (val r = remote.fetchAll()) {
+        is Result.Success -> local.upsertAll(r.value)
+        is Result.Failure -> r
     }
-
-    override suspend fun search(query: String): List<Product> = withContext(dispatchers.io) {
-        queries.search(query).executeAsList().map { it.toDomain() }
-    }
-
-    override suspend fun upsert(product: Product): Result<Unit> = runCatching {
-        withContext(dispatchers.io) {
-            queries.upsert(
-                id = product.id.value,
-                name = product.name,
-                description = product.description,
-                priceCents = product.price.amountInCents,
-                currency = product.price.currency.name,
-                category = product.category,
-                barcode = product.barcode,
-                imageUrl = product.imageUrl,
-                emoji = product.emoji,
-            )
-        }
-    }.fold(
-        onSuccess = { Result.Success(Unit) },
-        onFailure = { Result.Failure(AppError.DatabaseError(it.message ?: "Failed to save product")) },
-    )
 }

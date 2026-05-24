@@ -32,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.coditria.footpos.core.designsystem.PosTheme
 import com.coditria.footpos.core.designsystem.components.CategoryPill
+import com.coditria.footpos.core.designsystem.components.EmptyState
+import com.coditria.footpos.core.designsystem.components.ProductThumbnail
 import com.coditria.footpos.core.designsystem.components.SearchField
 import com.coditria.footpos.core.designsystem.typography
 import com.coditria.footpos.domain.model.Product
@@ -64,14 +66,22 @@ fun CatalogScreen(
             )
             // Map product id → quantity in cart, so each card can show a badge.
             val cartQuantities = state.cart.items.associate { it.product.id.value to it.quantity }
-            ProductGrid(
-                products = state.visibleProducts,
-                cartQuantities = cartQuantities,
-                isTablet = isTablet,
-                onTap = catalogVm::onProductTapped,
-                onLongPress = catalogVm::onProductLongPressed,
-                modifier = Modifier.weight(1f),
-            )
+            if (state.visibleProducts.isEmpty()) {
+                CatalogEmptyState(
+                    hasAnyProducts = state.products.isNotEmpty(),
+                    hasQuery = state.searchQuery.isNotBlank(),
+                    modifier = Modifier.weight(1f),
+                )
+            } else {
+                ProductGrid(
+                    products = state.visibleProducts,
+                    cartQuantities = cartQuantities,
+                    isTablet = isTablet,
+                    onTap = catalogVm::onProductTapped,
+                    onLongPress = catalogVm::onProductLongPressed,
+                    modifier = Modifier.weight(1f),
+                )
+            }
             if (!isTablet && state.cart.items.isNotEmpty()) {
                 FloatingCartBar(
                     itemCount = state.cart.items.sumOf { it.quantity },
@@ -142,6 +152,40 @@ private fun CategoryStrip(
     }
 }
 
+/**
+ * Tri-state empty UI. We distinguish between an unfiltered empty catalog (the local
+ * cache is genuinely empty — likely a first-launch refresh still in flight or an
+ * offline first launch) and an empty filtered view (the cashier's query / category
+ * didn't match anything).
+ */
+@Composable
+private fun CatalogEmptyState(
+    hasAnyProducts: Boolean,
+    hasQuery: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    when {
+        !hasAnyProducts -> EmptyState(
+            glyph = "🍽",
+            title = "No products yet",
+            message = "We couldn't load the catalog. Check your connection — products will appear here once the device is online.",
+            modifier = modifier,
+        )
+        hasQuery -> EmptyState(
+            glyph = "🔍",
+            title = "No matches",
+            message = "Try a different search term or clear the filter.",
+            modifier = modifier,
+        )
+        else -> EmptyState(
+            glyph = "📂",
+            title = "Nothing in this category",
+            message = "Pick another category to see more products.",
+            modifier = modifier,
+        )
+    }
+}
+
 @Composable
 private fun ProductGrid(
     products: List<Product>,
@@ -185,12 +229,10 @@ fun ProductCard(
                 .background(colors.backgroundTertiary)
                 .clickable(onClick = onTap),
         ) {
-            Box(
-                Modifier.fillMaxWidth().aspectRatio(1f).background(colors.backgroundSecondary),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(product.emoji ?: product.name.take(1).uppercase(), style = PosTheme.typography.largeTitle)
-            }
+            ProductThumbnail(
+                product = product,
+                modifier = Modifier.fillMaxWidth().aspectRatio(1f),
+            )
             Column(Modifier.padding(12.dp)) {
                 Text(
                     product.name,

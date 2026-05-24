@@ -1,5 +1,6 @@
 package com.coditria.footpos.domain.usecase
 
+import com.coditria.footpos.core.common.Result
 import com.coditria.footpos.domain.model.Product
 import com.coditria.footpos.domain.repository.ProductRepository
 import kotlinx.coroutines.flow.Flow
@@ -15,4 +16,8 @@ class ObserveCategoriesUseCase(private val repository: ProductRepository) {
 class SearchProductsUseCase(private val repository: ProductRepository) {
     suspend operator fun invoke(query: String): List<Product> =
         if (query.isBlank()) emptyList() else repository.search(query.trim())
+}
+
+class RefreshProductsUseCase(private val repository: ProductRepository) {
+    suspend operator fun invoke(): Result<Unit> = repository.refresh()
 }

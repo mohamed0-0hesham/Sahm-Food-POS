@@ -1,19 +1,18 @@
 package com.coditria.footpos.presentation.root
 
 import androidx.lifecycle.viewModelScope
-import com.coditria.footpos.data.seed.ProductSeeder
 import com.coditria.footpos.data.sync.SyncWorker
 import com.coditria.footpos.domain.model.User
 import com.coditria.footpos.domain.network.NetworkMonitor
 import com.coditria.footpos.domain.usecase.ObserveCurrentUserUseCase
 import com.coditria.footpos.domain.usecase.ObservePendingSyncCountUseCase
+import com.coditria.footpos.domain.usecase.RefreshProductsUseCase
 import com.coditria.footpos.presentation.shared.MviViewModel
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 data class RootState(
-    val seeding: Boolean = true,
     val authResolved: Boolean = false,
     val currentUser: User? = null,
     val online: Boolean = true,
@@ -23,7 +22,7 @@ data class RootState(
 }
 
 class RootViewModel(
-    private val seeder: ProductSeeder,
+    private val refreshProducts: RefreshProductsUseCase,
     private val syncWorker: SyncWorker,
     networkMonitor: NetworkMonitor,
     observePendingCount: ObservePendingSyncCountUseCase,
@@ -33,10 +32,11 @@ class RootViewModel(
     override fun initialState() = RootState()
 
     init {
-        viewModelScope.launch {
-            seeder.seedIfEmpty()
-            updateState { it.copy(seeding = false) }
-        }
+        // Offline-first: never block the UI on the network. The catalog observes the
+        // local cache (empty on first launch when offline, populated on later launches
+        // and as soon as a refresh completes). The refresh runs fire-and-forget here.
+        viewModelScope.launch { refreshProducts() }
+
         syncWorker.start(viewModelScope)
 
         observeCurrentUser()

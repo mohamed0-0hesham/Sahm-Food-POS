@@ -6,16 +6,21 @@ import com.coditria.footpos.core.common.Logger
 import com.coditria.footpos.core.common.NapierLogger
 import com.coditria.footpos.core.database.DatabaseFactory
 import com.coditria.footpos.core.navigation.Navigator
+import com.coditria.footpos.core.network.buildHttpClient
+import com.coditria.footpos.core.network.httpEngineFactory
 import com.coditria.footpos.data.auth.AuthDataSource
 import com.coditria.footpos.data.auth.DummyAuthDataSource
 import com.coditria.footpos.data.hardware.MockReceiptPrinter
+import com.coditria.footpos.data.product.local.ProductLocalDataSource
+import com.coditria.footpos.data.product.local.SqlDelightProductLocalDataSource
+import com.coditria.footpos.data.product.remote.DummyJsonRemoteProductDataSource
+import com.coditria.footpos.data.product.remote.ProductRemoteDataSource
 import com.coditria.footpos.data.repository.AuthRepositoryImpl
 import com.coditria.footpos.data.repository.InMemoryCartRepository
 import com.coditria.footpos.data.repository.OrderRepositoryImpl
 import com.coditria.footpos.data.repository.ProductRepositoryImpl
 import com.coditria.footpos.data.repository.SettingsRepositoryImpl
 import com.coditria.footpos.data.repository.SyncQueueImpl
-import com.coditria.footpos.data.seed.ProductSeeder
 import com.coditria.footpos.data.sync.ExponentialBackoffRetryPolicy
 import com.coditria.footpos.data.sync.MockPosApi
 import com.coditria.footpos.data.sync.RetryPolicy
@@ -45,6 +50,7 @@ import com.coditria.footpos.domain.usecase.ObservePendingSyncUseCase
 import com.coditria.footpos.domain.usecase.ObserveProductsUseCase
 import com.coditria.footpos.domain.usecase.ObserveSettingsUseCase
 import com.coditria.footpos.domain.usecase.PrintReceiptUseCase
+import com.coditria.footpos.domain.usecase.RefreshProductsUseCase
 import com.coditria.footpos.domain.usecase.RemoveItemFromCartUseCase
 import com.coditria.footpos.domain.usecase.RetryOrderSyncUseCase
 import com.coditria.footpos.domain.usecase.RetrySyncOperationUseCase
@@ -89,6 +95,10 @@ val sharedModule = module {
     // Settings (SharedPreferences on Android, NSUserDefaults on iOS).
     single { get<com.coditria.footpos.data.settings.SettingsFactory>().create() }
 
+    single { buildHttpClient(httpEngineFactory(), get()) }
+
+    single<ProductLocalDataSource> { SqlDelightProductLocalDataSource(get(), get()) }
+    single<ProductRemoteDataSource> { DummyJsonRemoteProductDataSource(get(), get()) }
     single<ProductRepository> { ProductRepositoryImpl(get(), get()) }
     single<OrderRepository> { OrderRepositoryImpl(get(), get()) }
     single<SettingsRepository> { SettingsRepositoryImpl(get()) }
@@ -97,7 +107,6 @@ val sharedModule = module {
     single<SyncQueue> { SyncQueueImpl(get(), get()) }
     single<AuthDataSource> { DummyAuthDataSource(get()) }
     single<AuthRepository> { AuthRepositoryImpl(get()) }
-    single { ProductSeeder(get(), get()) }
 
     single<ReceiptPrinter> { MockReceiptPrinter(get()) }
     single<PosApi> { MockPosApi() }
@@ -107,6 +116,7 @@ val sharedModule = module {
     factoryOf(::ObserveProductsUseCase)
     factoryOf(::ObserveCategoriesUseCase)
     factoryOf(::SearchProductsUseCase)
+    factoryOf(::RefreshProductsUseCase)
     factoryOf(::ObserveCartUseCase)
     factoryOf(::AddItemToCartUseCase)
     factoryOf(::RemoveItemFromCartUseCase)

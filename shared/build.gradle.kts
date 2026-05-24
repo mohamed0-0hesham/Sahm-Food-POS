@@ -49,6 +49,7 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.sqldelight.androidDriver)
             implementation(libs.koin.android)
+            implementation(libs.ktor.client.okhttp)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
@@ -75,6 +76,14 @@ kotlin {
             implementation(libs.napier)
 
             implementation(libs.multiplatformSettings)
+
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.contentNegotiation)
+            implementation(libs.ktor.client.logging)
+            implementation(libs.ktor.serialization.kotlinxJson)
+
+            implementation(libs.coil.compose)
+            implementation(libs.coil.networkKtor3)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -83,6 +92,7 @@ kotlin {
         }
         iosMain.dependencies {
             implementation(libs.sqldelight.nativeDriver)
+            implementation(libs.ktor.client.darwin)
         }
     }
 }
