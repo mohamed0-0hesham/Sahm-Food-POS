@@ -6,7 +6,10 @@ import com.coditria.footpos.core.common.Logger
 import com.coditria.footpos.core.common.NapierLogger
 import com.coditria.footpos.core.database.DatabaseFactory
 import com.coditria.footpos.core.navigation.Navigator
+import com.coditria.footpos.data.auth.AuthDataSource
+import com.coditria.footpos.data.auth.DummyAuthDataSource
 import com.coditria.footpos.data.hardware.MockReceiptPrinter
+import com.coditria.footpos.data.repository.AuthRepositoryImpl
 import com.coditria.footpos.data.repository.InMemoryCartRepository
 import com.coditria.footpos.data.repository.OrderRepositoryImpl
 import com.coditria.footpos.data.repository.ProductRepositoryImpl
@@ -19,6 +22,7 @@ import com.coditria.footpos.data.sync.RetryPolicy
 import com.coditria.footpos.data.sync.SyncWorker
 import com.coditria.footpos.domain.hardware.ReceiptPrinter
 import com.coditria.footpos.domain.network.PosApi
+import com.coditria.footpos.domain.repository.AuthRepository
 import com.coditria.footpos.domain.repository.CartRepository
 import com.coditria.footpos.domain.repository.OrderRepository
 import com.coditria.footpos.domain.repository.ProductRepository
@@ -51,6 +55,14 @@ import com.coditria.footpos.domain.usecase.UpdateCurrencyUseCase
 import com.coditria.footpos.domain.usecase.UpdateItemQuantityUseCase
 import com.coditria.footpos.domain.usecase.UpdateStoreNameUseCase
 import com.coditria.footpos.domain.usecase.UpdateTaxRateUseCase
+import com.coditria.footpos.domain.usecase.GetCurrentUserUseCase
+import com.coditria.footpos.domain.usecase.ObserveCurrentUserUseCase
+import com.coditria.footpos.domain.usecase.SignInWithAppleUseCase
+import com.coditria.footpos.domain.usecase.SignInWithEmailUseCase
+import com.coditria.footpos.domain.usecase.SignInWithGoogleUseCase
+import com.coditria.footpos.domain.usecase.SignOutUseCase
+import com.coditria.footpos.domain.usecase.SignUpWithEmailUseCase
+import com.coditria.footpos.presentation.auth.AuthViewModel
 import com.coditria.footpos.presentation.cart.CartViewModel
 import com.coditria.footpos.presentation.catalog.CatalogViewModel
 import com.coditria.footpos.presentation.checkout.CheckoutViewModel
@@ -83,6 +95,8 @@ val sharedModule = module {
     // Cart needs the settings stream (live tax rate) and the app scope to subscribe.
     single<CartRepository> { InMemoryCartRepository(get(), get()) }
     single<SyncQueue> { SyncQueueImpl(get(), get()) }
+    single<AuthDataSource> { DummyAuthDataSource(get()) }
+    single<AuthRepository> { AuthRepositoryImpl(get()) }
     single { ProductSeeder(get(), get()) }
 
     single<ReceiptPrinter> { MockReceiptPrinter(get()) }
@@ -117,6 +131,13 @@ val sharedModule = module {
     factoryOf(::UpdateTaxRateUseCase)
     factoryOf(::UpdateCurrencyUseCase)
     factoryOf(::UpdateAutoPrintUseCase)
+    factoryOf(::ObserveCurrentUserUseCase)
+    factoryOf(::GetCurrentUserUseCase)
+    factoryOf(::SignInWithEmailUseCase)
+    factoryOf(::SignUpWithEmailUseCase)
+    factoryOf(::SignInWithGoogleUseCase)
+    factoryOf(::SignInWithAppleUseCase)
+    factoryOf(::SignOutUseCase)
 
     factory { CatalogViewModel(get(), get(), get(), get(), get()) }
     factory { CartViewModel(get(), get(), get(), get(), get(), get(), get()) }
@@ -125,5 +146,6 @@ val sharedModule = module {
     factory { (orderId: com.coditria.footpos.domain.model.OrderId) -> OrderDetailViewModel(orderId, get(), get(), get(), get()) }
     factory { SyncStatusViewModel(get(), get(), get()) }
     factory { SettingsViewModel(get(), get(), get(), get(), get()) }
-    factory { RootViewModel(get(), get(), get(), get()) }
+    factory { RootViewModel(get(), get(), get(), get(), get()) }
+    factory { AuthViewModel(get(), get(), get(), get(), get(), get()) }
 }

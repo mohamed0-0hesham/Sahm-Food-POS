@@ -27,6 +27,7 @@ import com.coditria.footpos.core.designsystem.typography
 import com.coditria.footpos.core.navigation.Destination
 import com.coditria.footpos.core.navigation.Navigator
 import com.coditria.footpos.core.navigation.TabKey
+import com.coditria.footpos.presentation.auth.AuthScreen
 import com.coditria.footpos.presentation.cart.CartScreen
 import com.coditria.footpos.presentation.cart.CartViewModel
 import com.coditria.footpos.presentation.cart.DiscountSheet
@@ -51,8 +52,18 @@ fun RootScreen(
     val rootState by rootVm.state.collectAsStateWithLifecycle()
     val navState by navigator.state.collectAsStateWithLifecycle()
 
-    if (rootState.seeding) {
+    // Splash until product seed completes AND we know whether a user is signed in.
+    // Both are quick, but we gate together so we never flash the auth screen for a
+    // user who's already authenticated.
+    if (rootState.seeding || !rootState.authResolved) {
         SplashScreen()
+        return
+    }
+
+    if (!rootState.isAuthenticated) {
+        // Navigator state (modals, stacks) is meaningless until the user is in;
+        // the auth screen owns the whole window.
+        AuthScreen(onAuthenticated = { /* RootViewModel observes auth and re-renders */ })
         return
     }
 
