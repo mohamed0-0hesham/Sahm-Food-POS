@@ -19,16 +19,20 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import coil3.compose.SubcomposeAsyncImage
+import coil3.compose.AsyncImage
 import com.coditria.footpos.core.designsystem.PosTheme
 import com.coditria.footpos.core.designsystem.typography
 import com.coditria.footpos.domain.model.Product
 
 /**
- * Three-step fallback chain — remote URL → emoji → first letter — with a soft
- * shimmer placeholder during load and a clean fallback glyph on error. The
- * placeholder is a slow horizontal gradient sweep, which reads as "loading" to
- * users without needing a spinner cluttering the grid.
+ * Three-step fallback chain — remote URL → emoji → first letter.
+ *
+ * Implementation note: we use plain [AsyncImage] (not [coil3.compose.SubcomposeAsyncImage])
+ * because SubcomposeAsyncImage measures its slots via subcomposition, which has been
+ * unreliable in fill-bleed containers with an aspect ratio (the hero pager case) —
+ * the image would sometimes never lay out and the placeholder/fallback would stay on
+ * screen indefinitely. With [AsyncImage] we paint the shimmer placeholder underneath
+ * and the resolved image just draws on top once it loads.
  */
 @Composable
 fun ProductThumbnail(
@@ -46,13 +50,15 @@ fun ProductThumbnail(
             FallbackGlyph(product)
             return@Box
         }
-        SubcomposeAsyncImage(
+        // Shimmer plays underneath; AsyncImage paints over it as soon as the bitmap
+        // is decoded. Coil's built-in crossfade (configured in AppImageLoader) gives
+        // a soft fade-in, so the swap reads as polished rather than abrupt.
+        ShimmerPlaceholder()
+        AsyncImage(
             model = url,
             contentDescription = product.name,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
-            loading = { ShimmerPlaceholder() },
-            error = { FallbackGlyph(product) },
         )
     }
 }

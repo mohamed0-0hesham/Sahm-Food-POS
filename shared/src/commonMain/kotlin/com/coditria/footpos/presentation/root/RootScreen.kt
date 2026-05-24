@@ -1,6 +1,7 @@
 package com.coditria.footpos.presentation.root
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
@@ -8,6 +9,10 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -106,9 +111,70 @@ fun RootScreen(
                 onSelect = navigator::selectTab,
             )
         }
-        navState.modal?.let { modal ->
-            ModalScrim(onDismiss = navigator::dismissModal) {
-                ModalContent(modal = modal, navigator = navigator)
+        ModalLayer(modal = navState.modal, navigator = navigator)
+    }
+}
+
+/**
+ * Two synchronized layers for the modal sheet:
+ *   1. A fading scrim that dims the screen behind the sheet.
+ *   2. The sheet itself, slide-up on enter, slide-down on exit, with a soft fade.
+ *
+ * The previous implementation wrapped both in a `navState.modal?.let { ... }` block
+ * that left composition the moment the modal cleared — so the exit animation never
+ * had content to play and the sheet snapped away. Here we drive both layers from a
+ * remembered "last seen modal" so the exit animation has stable content, while the
+ * `visible` flag is the live `navState.modal != null`.
+ *
+ * This is the same pattern the catalog uses for the floating cart bar — the data
+ * outlives the visibility flag so the animation can complete cleanly.
+ */
+@Composable
+private fun ModalLayer(modal: Destination.Modal?, navigator: Navigator) {
+    val visible = modal != null
+    // Keep the last non-null modal so the sheet keeps rendering during exit.
+    var lastModal by remember { mutableStateOf<Destination.Modal?>(modal) }
+    LaunchedEffect(modal) {
+        if (modal != null) lastModal = modal
+    }
+    val rendered = modal ?: lastModal
+
+    // Scrim — fades in/out independently of the sheet so the dim ramps gradually
+    // rather than appearing instantly.
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(PosMotion.tweenStandard()),
+        exit = fadeOut(PosMotion.tweenStandard()),
+    ) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.45f))
+                .clickable(onClick = { navigator.dismissModal() }),
+        )
+    }
+
+    // Sheet — slides up from the bottom on enter, slides down on exit. The
+    // BoxWithConstraints positions it at the bottom of the window.
+    val colors = PosTheme.colors
+    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+        AnimatedVisibility(
+            visible = visible,
+            enter = slideInVertically(PosMotion.tweenStandard()) { it } + fadeIn(PosMotion.tweenStandard()),
+            exit = slideOutVertically(PosMotion.tweenStandard()) { it } + fadeOut(PosMotion.tweenFast()),
+        ) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .imePadding()
+                    .navigationBarsPadding()
+                    .clip(PosTheme.shapes.sheet)
+                    .background(colors.backgroundPrimary)
+                    // Swallow taps on the sheet itself so they don't fall through to
+                    // the scrim's dismiss handler.
+                    .clickable(enabled = false) {},
+            ) {
+                rendered?.let { ModalContent(modal = it, navigator = navigator) }
             }
         }
     }
@@ -173,38 +239,6 @@ private fun ModalContent(modal: Destination.Modal, navigator: Navigator) {
             productIdValue = modal.productIdValue,
             onDismiss = { navigator.dismissModal() },
         )
-    }
-}
-
-@Composable
-private fun ModalScrim(onDismiss: () -> Unit, content: @Composable () -> Unit) {
-    val colors = PosTheme.colors
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.45f))
-            .clickable(onClick = onDismiss),
-        contentAlignment = Alignment.BottomCenter,
-    ) {
-        // Sheet slides in from the bottom for a sense of arrival.
-        AnimatedContent(
-            targetState = Unit,
-            transitionSpec = {
-                (slideInVertically(PosMotion.tweenStandard()) { it } + fadeIn(PosMotion.tweenStandard()))
-                    .togetherWith(slideOutVertically(PosMotion.tweenStandard()) { it } + fadeOut(PosMotion.tweenFast()))
-            },
-            label = "sheet",
-        ) { _ ->
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .imePadding()
-                    .navigationBarsPadding()
-                    .clip(PosTheme.shapes.sheet)
-                    .background(colors.backgroundPrimary)
-                    .clickable(enabled = false) {},
-            ) { content() }
-        }
     }
 }
 

@@ -8,58 +8,81 @@ import com.coditria.footpos.domain.model.OrderStatus
 import com.coditria.footpos.domain.model.Product
 import com.coditria.footpos.domain.model.TodayStats
 import com.coditria.footpos.domain.repository.OrderRepository
+import com.coditria.footpos.domain.repository.ProductRepository
 import com.coditria.footpos.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 /**
  * Top-selling products across the full order history.
  *
- * Aggregation lives in the domain (not the data layer) because "what's a best seller"
- * is a business rule — today it's "most units sold across all paid orders", tomorrow
- * it could weigh recency, revenue, or category. The repository stays a dumb store.
+ * Important: the `Product` snapshot stored on each [OrderItem] is intentionally
+ * thin (id / name / price only — see `OrderItemEntity` schema), because orders are
+ * a historical transaction record, not a denormalized copy of the catalog. To
+ * render rich UI (images, categories, etc.) we **re-hydrate** each top-seller
+ * against the live catalog and fall back to the order snapshot only when the
+ * catalog no longer has the product.
  */
 class ObserveTopSellersUseCase(
     private val orderRepository: OrderRepository,
+    private val productRepository: ProductRepository,
 ) {
-    operator fun invoke(limit: Int = 5): Flow<List<Pair<Product, Int>>> =
-        orderRepository.observeAll().map { orders ->
-            orders
-                .asSequence()
-                .filter { it.status != OrderStatus.CANCELLED }
-                .flatMap { it.items.asSequence() }
-                .groupingBy { it.product.id.value }
-                .fold(0 to (null as Product?)) { acc, item ->
-                    (acc.first + item.quantity) to item.product
-                }
-                .values
-                .mapNotNull { (qty, product) -> product?.let { it to qty } }
-                .sortedByDescending { it.second }
-                .take(limit)
-                .toList()
+    operator fun invoke(limit: Int = 5): Flow<List<Pair<Product, Int>>> = combine(
+        orderRepository.observeAll(),
+        productRepository.observeAll(),
+    ) { orders, catalog ->
+        aggregateTopSellers(orders, catalog, limit)
+    }
+}
+
+private fun aggregateTopSellers(
+    orders: List<Order>,
+    catalog: List<Product>,
+    limit: Int,
+): List<Pair<Product, Int>> {
+    val catalogById = catalog.associateBy { it.id.value }
+    return orders
+        .asSequence()
+        .filter { it.status != OrderStatus.CANCELLED }
+        .flatMap { it.items.asSequence() }
+        .groupingBy { it.product.id.value }
+        .fold(0 to (null as Product?)) { acc, item ->
+            (acc.first + item.quantity) to item.product
         }
+        .entries
+        .mapNotNull { (id, qtyAndSnapshot) ->
+            val (qty, snapshot) = qtyAndSnapshot
+            // Prefer the live catalog product (has imageUrl, category, etc.);
+            // fall back to the order-time snapshot if the catalog no longer has
+            // this product.
+            val product = catalogById[id] ?: snapshot ?: return@mapNotNull null
+            product to qty
+        }
+        .sortedByDescending { it.second }
+        .take(limit)
 }
 
 /**
  * Today-only revenue, order count, top item, hourly bars + peak hour.
  *
- * Combined with the [SettingsRepository] currency so an empty-day [Money.ZERO] still
- * carries the store's configured currency rather than the hard-coded default.
+ * The "top item" gets the same catalog re-hydration as bestsellers above so the
+ * dashboard tile can show a current product name even if the historical order
+ * stored a stale one.
  */
 class ObserveTodayStatsUseCase(
     private val orderRepository: OrderRepository,
+    private val productRepository: ProductRepository,
     private val settingsRepository: SettingsRepository,
 ) {
     @OptIn(ExperimentalTime::class)
     operator fun invoke(): Flow<TodayStats> = combine(
         orderRepository.observeAll(),
+        productRepository.observeAll(),
         settingsRepository.observe(),
-    ) { orders, settings ->
+    ) { orders, catalog, settings ->
         val tz = TimeZone.currentSystemDefault()
         val today = now().toLocalDateTime(tz).date
         val currency = settings.currency
@@ -85,7 +108,11 @@ class ObserveTodayStatsUseCase(
         val revenue = Money(revenueCents, currency)
         val avg = Money(revenueCents / todayOrders.size, currency)
 
-        // Top item — by units sold within today's orders.
+        // Top item — by units sold within today's orders. Re-hydrate against the
+        // live catalog so the dashboard tile has the canonical product (this isn't
+        // currently used to render an image, but keeps the contract consistent
+        // with the bestsellers carousel).
+        val catalogById = catalog.associateBy { it.id.value }
         val topPair = todayOrders
             .asSequence()
             .flatMap { it.items.asSequence() }
@@ -93,8 +120,13 @@ class ObserveTodayStatsUseCase(
             .fold(0 to (null as Product?)) { acc, item ->
                 (acc.first + item.quantity) to item.product
             }
-            .values
-            .maxByOrNull { it.first }
+            .entries
+            .mapNotNull { (id, qtyAndSnapshot) ->
+                val (qty, snapshot) = qtyAndSnapshot
+                val product = catalogById[id] ?: snapshot ?: return@mapNotNull null
+                product to qty
+            }
+            .maxByOrNull { it.second }
 
         // Hourly buckets — group by local hour. Sparse: only hours with orders appear.
         val buckets = todayOrders
@@ -112,8 +144,8 @@ class ObserveTodayStatsUseCase(
             revenue = revenue,
             orderCount = todayOrders.size,
             avgTicket = avg,
-            topItem = topPair?.second,
-            topItemUnitsSold = topPair?.first ?: 0,
+            topItem = topPair?.first,
+            topItemUnitsSold = topPair?.second ?: 0,
             hourlyRevenue = buckets,
             peakHour = buckets.maxByOrNull { it.revenue.amountInCents },
         )
