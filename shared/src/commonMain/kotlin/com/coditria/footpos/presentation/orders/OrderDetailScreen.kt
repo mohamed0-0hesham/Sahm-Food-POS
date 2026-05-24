@@ -1,10 +1,10 @@
 package com.coditria.footpos.presentation.orders
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,8 +27,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.coditria.footpos.core.designsystem.PosTheme
+import com.coditria.footpos.core.designsystem.components.PosCard
+import com.coditria.footpos.core.designsystem.components.PosTopBar
 import com.coditria.footpos.core.designsystem.components.SecondaryButton
+import com.coditria.footpos.core.designsystem.components.SectionLabel
 import com.coditria.footpos.core.designsystem.components.SyncStatusIcon
+import com.coditria.footpos.core.designsystem.shapes
 import com.coditria.footpos.core.designsystem.typography
 import com.coditria.footpos.domain.model.Order
 import com.coditria.footpos.domain.model.OrderId
@@ -59,77 +62,102 @@ fun OrderDetailScreen(
     }
 
     Column(Modifier.fillMaxSize().background(colors.backgroundPrimary)) {
-        TopBar(title = "Order #${orderId.value.takeLast(6)}", onBack = onBack)
+        PosTopBar(title = "Order #${orderId.value.takeLast(6)}", onBack = onBack)
         val order = state.order
         if (order == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(if (state.loading) "Loading…" else "Order not found", style = PosTheme.typography.body, color = colors.labelSecondary)
+                Text(
+                    if (state.loading) "Loading…" else "Order not found",
+                    style = PosTheme.typography.body,
+                    color = colors.labelSecondary,
+                )
             }
             return@Column
         }
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-            SectionTitle("Status")
-            StatusCard(order)
-            SectionTitle("Items")
-            ItemsCard(order)
-            SectionTitle("Totals")
-            TotalsCard(order)
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(PaddingValues(horizontal = 20.dp, vertical = 12.dp)),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            Group(label = "Status") { StatusCard(order) }
+            Group(label = "Items") { ItemsCard(order) }
+            Group(label = "Totals") { TotalsCard(order) }
             order.payment?.let {
-                SectionTitle("Payment")
-                PaymentCard(order)
+                Group(label = "Payment") { PaymentCard(order) }
             }
             error?.let {
                 Text(it, style = PosTheme.typography.footnote, color = colors.destructive)
             }
-            SecondaryButton(text = "Reprint Receipt", onClick = vm::onReprint, modifier = Modifier.fillMaxWidth())
+            SecondaryButton(text = "Reprint receipt", onClick = vm::onReprint, modifier = Modifier.fillMaxWidth())
             if (order.syncStatus == SyncStatus.FAILED) {
-                SecondaryButton(text = "Retry Sync", onClick = vm::onRetrySync, modifier = Modifier.fillMaxWidth())
+                SecondaryButton(text = "Retry sync", onClick = vm::onRetrySync, modifier = Modifier.fillMaxWidth())
             }
+            Spacer(Modifier.size(8.dp))
         }
     }
 }
 
 @Composable
-private fun TopBar(title: String, onBack: () -> Unit) {
-    val colors = PosTheme.colors
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("‹", style = PosTheme.typography.title2, color = colors.accent, modifier = Modifier.clickable { onBack() }.padding(end = 8.dp))
-        Text(title, style = PosTheme.typography.headline, color = colors.labelPrimary)
+private fun Group(label: String, content: @Composable () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        SectionLabel(text = label)
+        content()
     }
-}
-
-@Composable
-private fun SectionTitle(text: String) {
-    Text(text.uppercase(), style = PosTheme.typography.caption1, color = PosTheme.colors.labelTertiary)
 }
 
 @Composable
 private fun StatusCard(order: Order) {
     val colors = PosTheme.colors
-    Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(colors.backgroundSecondary).padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        SyncStatusIcon(order.syncStatus)
-        Spacer(Modifier.size(8.dp))
-        Text(order.syncStatus.name.lowercase().replaceFirstChar { it.uppercase() }, style = PosTheme.typography.headline, color = colors.labelPrimary)
+    PosCard {
+        Row(
+            Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SyncStatusIcon(order.syncStatus)
+            Spacer(Modifier.size(10.dp))
+            Text(
+                order.syncStatus.name.lowercase().replaceFirstChar { it.uppercase() },
+                style = PosTheme.typography.headline,
+                color = colors.labelPrimary,
+            )
+        }
     }
 }
 
 @Composable
 private fun ItemsCard(order: Order) {
     val colors = PosTheme.colors
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(colors.backgroundSecondary)) {
+    PosCard {
         order.items.forEachIndexed { idx, item ->
             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier
+                        .size(36.dp)
+                        .clip(PosTheme.shapes.sm)
+                        .background(colors.backgroundSecondary),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        "×${item.quantity}",
+                        style = PosTheme.typography.subhead,
+                        color = colors.labelPrimary,
+                    )
+                }
+                Spacer(Modifier.size(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("${item.product.name} × ${item.quantity}", style = PosTheme.typography.headline, color = colors.labelPrimary)
-                    Text("${item.unitPrice.format()} each", style = PosTheme.typography.footnote, color = colors.labelSecondary)
+                    Text(item.product.name, style = PosTheme.typography.headline, color = colors.labelPrimary)
+                    Text(
+                        "${item.unitPrice.format()} each",
+                        style = PosTheme.typography.footnote,
+                        color = colors.labelSecondary,
+                    )
                 }
                 Text(item.subtotal.formatAmount(), style = PosTheme.typography.headline, color = colors.labelPrimary)
             }
             if (idx != order.items.lastIndex) {
-                Box(Modifier.fillMaxWidth().height(1.dp).background(colors.separator))
+                Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(1.dp).background(colors.separator))
             }
         }
     }
@@ -138,15 +166,22 @@ private fun ItemsCard(order: Order) {
 @Composable
 private fun TotalsCard(order: Order) {
     val colors = PosTheme.colors
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(colors.backgroundSecondary).padding(16.dp)) {
-        Line("Subtotal", order.subtotal.format())
-        Line("Tax", order.taxAmount.format())
-        if (!order.discount.amount.isZero()) Line("Discount", "-" + order.discount.amount.formatAmount())
-        Box(Modifier.fillMaxWidth().height(1.dp).background(colors.separator).padding(vertical = 6.dp))
-        Spacer(Modifier.size(8.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Total", style = PosTheme.typography.title3, color = colors.labelPrimary, modifier = Modifier.weight(1f))
-            Text(order.total.format(), style = PosTheme.typography.title2, color = colors.labelPrimary)
+    PosCard {
+        Column(Modifier.padding(16.dp)) {
+            Line("Subtotal", order.subtotal.format())
+            Spacer(Modifier.size(4.dp))
+            Line("Tax", order.taxAmount.format())
+            if (!order.discount.amount.isZero()) {
+                Spacer(Modifier.size(4.dp))
+                Line("Discount", "-" + order.discount.amount.formatAmount(), valueColor = colors.success)
+            }
+            Spacer(Modifier.size(12.dp))
+            Box(Modifier.fillMaxWidth().height(1.dp).background(colors.separator))
+            Spacer(Modifier.size(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Total", style = PosTheme.typography.title3, color = colors.labelPrimary, modifier = Modifier.weight(1f))
+                Text(order.total.format(), style = PosTheme.typography.title2, color = colors.accent)
+            }
         }
     }
 }
@@ -154,19 +189,22 @@ private fun TotalsCard(order: Order) {
 @Composable
 private fun PaymentCard(order: Order) {
     val payment = order.payment ?: return
-    val colors = PosTheme.colors
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(colors.backgroundSecondary).padding(16.dp)) {
-        Line("Method", payment.method.name.lowercase().replaceFirstChar { it.uppercase() })
-        Line("Received", payment.amountTendered.format())
-        Line("Change", payment.changeDue(order.total).format())
+    PosCard {
+        Column(Modifier.padding(16.dp)) {
+            Line("Method", payment.method.name.lowercase().replaceFirstChar { it.uppercase() })
+            Spacer(Modifier.size(4.dp))
+            Line("Received", payment.amountTendered.format())
+            Spacer(Modifier.size(4.dp))
+            Line("Change", payment.changeDue(order.total).format())
+        }
     }
 }
 
 @Composable
-private fun Line(label: String, value: String) {
+private fun Line(label: String, value: String, valueColor: androidx.compose.ui.graphics.Color? = null) {
     val colors = PosTheme.colors
-    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+    Row(Modifier.fillMaxWidth()) {
         Text(label, style = PosTheme.typography.body, color = colors.labelSecondary, modifier = Modifier.weight(1f))
-        Text(value, style = PosTheme.typography.body, color = colors.labelPrimary)
+        Text(value, style = PosTheme.typography.body, color = valueColor ?: colors.labelPrimary)
     }
 }

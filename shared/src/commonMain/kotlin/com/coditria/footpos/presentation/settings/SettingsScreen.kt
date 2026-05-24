@@ -1,6 +1,7 @@
 package com.coditria.footpos.presentation.settings
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,7 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -29,18 +29,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.animation.animateColorAsState
+import com.coditria.footpos.core.designsystem.PosMotion
 import com.coditria.footpos.core.designsystem.PosTheme
+import com.coditria.footpos.core.designsystem.components.PosCard
+import com.coditria.footpos.core.designsystem.components.PosTopBar
+import com.coditria.footpos.core.designsystem.components.SectionLabel
+import com.coditria.footpos.core.designsystem.shapes
 import com.coditria.footpos.core.designsystem.typography
 import com.coditria.footpos.domain.model.Currency
 import com.coditria.footpos.domain.model.TaxRate
 import org.koin.compose.viewmodel.koinViewModel
 
-/** Which inline editor (if any) is currently open. */
 private sealed interface SettingsEditor {
     object StoreName : SettingsEditor
     object TaxRate : SettingsEditor
@@ -61,20 +65,25 @@ fun SettingsScreen(
             .fillMaxSize()
             .background(colors.backgroundPrimary)
             .verticalScroll(rememberScrollState())
-            .padding(PaddingValues(20.dp)),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+            .padding(PaddingValues(horizontal = 20.dp, vertical = 16.dp)),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        Text("Settings", style = PosTheme.typography.largeTitle, color = colors.labelPrimary)
+        // Account / brand hero — feels like a profile header in a modern app.
+        Column {
+            Text("Account", style = PosTheme.typography.largeTitle, color = colors.labelPrimary)
+            Spacer(Modifier.size(4.dp))
+            Text(state.settings.storeName, style = PosTheme.typography.body, color = colors.labelSecondary)
+        }
 
-        Section(title = "STORE") {
+        Section(label = "Store") {
             SettingsRow(
-                title = "Store Name",
+                title = "Store name",
                 value = state.settings.storeName,
                 onClick = { editor = SettingsEditor.StoreName },
             )
             Divider()
             SettingsRow(
-                title = "Tax Rate",
+                title = "Tax rate",
                 value = state.settings.taxRate.toPercentLabel(),
                 onClick = { editor = SettingsEditor.TaxRate },
             )
@@ -86,7 +95,7 @@ fun SettingsScreen(
             )
         }
 
-        Section(title = "HARDWARE") {
+        Section(label = "Hardware") {
             SettingsRow(title = "Printer", value = "Mock Printer (Demo)")
             Divider()
             ToggleRow(
@@ -96,11 +105,11 @@ fun SettingsScreen(
             )
         }
 
-        Section(title = "SYNC") {
+        Section(label = "Sync") {
             SettingsRow(title = "Status", value = "Background")
         }
 
-        Section(title = "ABOUT") {
+        Section(label = "About") {
             SettingsRow(title = "Version", value = "1.0.0")
             Divider()
             SettingsRow(title = "About Sahm POS", value = "›", onClick = onOpenAbout)
@@ -111,7 +120,7 @@ fun SettingsScreen(
 
     when (editor) {
         SettingsEditor.StoreName -> TextEditDialog(
-            title = "Store Name",
+            title = "Store name",
             initial = state.settings.storeName,
             keyboard = KeyboardType.Text,
             validate = { it.isNotBlank() },
@@ -139,20 +148,12 @@ private fun TaxRate.toPercentLabel(): String {
 }
 
 @Composable
-private fun Section(title: String, content: @Composable () -> Unit) {
-    Column {
-        Text(
-            title,
-            style = PosTheme.typography.caption1,
-            color = PosTheme.colors.labelTertiary,
-            modifier = Modifier.padding(bottom = 8.dp),
-        )
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(PosTheme.colors.backgroundSecondary),
-        ) { content() }
+private fun Section(label: String, content: @Composable () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        SectionLabel(text = label)
+        PosCard {
+            content()
+        }
     }
 }
 
@@ -164,7 +165,7 @@ private fun SettingsRow(title: String, value: String, onClick: (() -> Unit)? = n
         modifier = Modifier
             .fillMaxWidth()
             .then(clickModifier)
-            .padding(16.dp),
+            .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(title, style = PosTheme.typography.body, color = colors.labelPrimary, modifier = Modifier.weight(1f))
@@ -175,24 +176,29 @@ private fun SettingsRow(title: String, value: String, onClick: (() -> Unit)? = n
 @Composable
 private fun ToggleRow(title: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     val colors = PosTheme.colors
+    val bg by animateColorAsState(
+        targetValue = if (checked) colors.accent else colors.separatorStrong,
+        animationSpec = PosMotion.tweenStandard(),
+        label = "switch-bg",
+    )
     Row(
-        Modifier.fillMaxWidth().clickable { onCheckedChange(!checked) }.padding(16.dp),
+        Modifier.fillMaxWidth().clickable { onCheckedChange(!checked) }.padding(horizontal = 16.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(title, style = PosTheme.typography.body, color = colors.labelPrimary, modifier = Modifier.weight(1f))
         Box(
             Modifier
-                .size(width = 44.dp, height = 26.dp)
-                .clip(RoundedCornerShape(13.dp))
-                .background(if (checked) colors.success else colors.separator),
+                .size(width = 46.dp, height = 28.dp)
+                .clip(PosTheme.shapes.pill)
+                .background(bg),
             contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart,
         ) {
             Box(
                 Modifier
-                    .padding(2.dp)
+                    .padding(3.dp)
                     .size(22.dp)
-                    .clip(RoundedCornerShape(11.dp))
-                    .background(Color.White),
+                    .clip(PosTheme.shapes.pill)
+                    .background(colors.backgroundPrimary),
             )
         }
     }
@@ -200,10 +206,10 @@ private fun ToggleRow(title: String, checked: Boolean, onCheckedChange: (Boolean
 
 @Composable
 private fun Divider() {
-    Box(Modifier.fillMaxWidth().height(1.dp).background(PosTheme.colors.separator))
+    Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(1.dp).background(PosTheme.colors.separator))
 }
 
-// ---------- Editor dialogs ---------------------------------------------------
+// ---- Editor dialogs --------------------------------------------------------
 
 @Composable
 private fun TextEditDialog(
@@ -218,9 +224,7 @@ private fun TextEditDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title, style = PosTheme.typography.title3) },
-        text = {
-            EditField(value = text, onValueChange = { text = it }, keyboard = keyboard)
-        },
+        text = { EditField(value = text, onValueChange = { text = it }, keyboard = keyboard) },
         confirmButton = {
             TextButton(enabled = validate(text), onClick = { onConfirm(text) }) { Text("Save") }
         },
@@ -242,7 +246,7 @@ private fun TaxRateEditDialog(
     val valid = parsed != null && parsed in 0.0..100.0
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Tax Rate (%)", style = PosTheme.typography.title3) },
+        title = { Text("Tax rate (%)", style = PosTheme.typography.title3) },
         text = {
             EditField(
                 value = text,
@@ -298,8 +302,9 @@ private fun EditField(value: String, onValueChange: (String) -> Unit, keyboard: 
     Box(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(colors.backgroundSecondary)
+            .clip(PosTheme.shapes.md)
+            .background(colors.backgroundPrimary)
+            .border(width = 1.dp, color = colors.separatorStrong, shape = PosTheme.shapes.md)
             .padding(14.dp),
     ) {
         BasicTextField(
@@ -319,28 +324,28 @@ private fun EditField(value: String, onValueChange: (String) -> Unit, keyboard: 
 fun AboutScreen(onBack: () -> Unit) {
     val colors = PosTheme.colors
     Column(Modifier.fillMaxSize().background(colors.backgroundPrimary)) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                "‹",
-                style = PosTheme.typography.title2,
-                color = colors.accent,
-                modifier = Modifier.clickable { onBack() }.padding(end = 8.dp),
-            )
-            Text("About", style = PosTheme.typography.headline, color = colors.labelPrimary)
-        }
+        PosTopBar(title = "About", onBack = onBack)
         Column(
             Modifier.fillMaxSize().padding(40.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Text("Sahm Food POS", style = PosTheme.typography.title1, color = colors.labelPrimary)
-            Spacer(Modifier.size(8.dp))
-            Text("Version 1.0.0", style = PosTheme.typography.body, color = colors.labelSecondary)
+            Box(
+                Modifier
+                    .size(80.dp)
+                    .clip(PosTheme.shapes.lg)
+                    .background(colors.accent),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("S", style = PosTheme.typography.display, color = colors.onAccent)
+            }
             Spacer(Modifier.size(20.dp))
+            Text("Sahm Food POS", style = PosTheme.typography.title1, color = colors.labelPrimary)
+            Spacer(Modifier.size(6.dp))
+            Text("Version 1.0.0", style = PosTheme.typography.body, color = colors.labelSecondary)
+            Spacer(Modifier.size(28.dp))
             Text("Built with Kotlin Multiplatform", style = PosTheme.typography.body, color = colors.labelSecondary)
+            Spacer(Modifier.size(4.dp))
             Text("© 2026 Sahm Food", style = PosTheme.typography.footnote, color = colors.labelTertiary)
         }
     }

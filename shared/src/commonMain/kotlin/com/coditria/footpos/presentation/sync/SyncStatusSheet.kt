@@ -1,7 +1,7 @@
 package com.coditria.footpos.presentation.sync
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,12 +9,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -25,7 +24,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.coditria.footpos.core.designsystem.PosTheme
 import com.coditria.footpos.core.designsystem.components.EmptyState
+import com.coditria.footpos.core.designsystem.components.IconChip
 import com.coditria.footpos.core.designsystem.components.TertiaryButton
+import com.coditria.footpos.core.designsystem.shapes
 import com.coditria.footpos.core.designsystem.typography
 import com.coditria.footpos.domain.model.SyncOperation
 import com.coditria.footpos.domain.model.SyncOperationState
@@ -39,13 +40,33 @@ fun SyncStatusSheet(
     val state by vm.state.collectAsStateWithLifecycle()
     val colors = PosTheme.colors
 
-    Column(Modifier.fillMaxWidth().background(colors.backgroundPrimary).padding(20.dp)) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(colors.backgroundPrimary)
+            .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 20.dp),
+    ) {
+        Box(
+            Modifier
+                .align(Alignment.CenterHorizontally)
+                .padding(bottom = 16.dp)
+                .clip(PosTheme.shapes.pill)
+                .background(colors.separator)
+                .size(width = 40.dp, height = 4.dp),
+        )
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Sync Status", style = PosTheme.typography.title2, color = colors.labelPrimary, modifier = Modifier.weight(1f))
-            Text("✕", style = PosTheme.typography.title3, color = colors.labelSecondary, modifier = Modifier.clickable { onDismiss() }.padding(4.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Sync", style = PosTheme.typography.title1, color = colors.labelPrimary)
+                Text(
+                    if (state.online) "Connected" else "Offline — orders queued",
+                    style = PosTheme.typography.subhead,
+                    color = colors.labelSecondary,
+                )
+            }
+            IconChip(glyph = "✕", onClick = onDismiss)
         }
-        Spacer(Modifier.size(16.dp))
-        ConnectionRow(online = state.online)
+        Spacer(Modifier.size(20.dp))
+        ConnectionPanel(online = state.online)
         Spacer(Modifier.size(16.dp))
         if (state.operations.isEmpty()) {
             EmptyState(
@@ -54,31 +75,48 @@ fun SyncStatusSheet(
                 message = "There are no pending sync operations.",
             )
         } else {
-            LazyColumn(contentPadding = PaddingValues(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(state.operations, key = { it.id }) { op -> OperationRow(op, onRetry = { vm.onRetry(op.id) }) }
+            LazyColumn(
+                contentPadding = PaddingValues(vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(state.operations, key = { it.id }) { op ->
+                    OperationRow(op, onRetry = { vm.onRetry(op.id) })
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ConnectionRow(online: Boolean) {
+private fun ConnectionPanel(online: Boolean) {
     val colors = PosTheme.colors
+    val tint = if (online) colors.success else colors.warning
     Row(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(colors.backgroundSecondary)
-            .padding(14.dp),
+            .clip(PosTheme.shapes.md)
+            .background(tint.copy(alpha = 0.10f))
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            if (online) "✓" else "⌀",
-            style = PosTheme.typography.title3,
-            color = if (online) colors.success else colors.labelSecondary,
+        Box(
+            Modifier
+                .size(10.dp)
+                .clip(CircleShape)
+                .background(tint),
         )
-        Spacer(Modifier.size(8.dp))
-        Text(if (online) "Online" else "Offline", style = PosTheme.typography.headline, color = colors.labelPrimary)
+        Spacer(Modifier.size(10.dp))
+        Text(
+            if (online) "Online" else "Offline",
+            style = PosTheme.typography.headline,
+            color = colors.labelPrimary,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            if (online) "Syncing in background" else "Will sync when reconnected",
+            style = PosTheme.typography.footnote,
+            color = colors.labelSecondary,
+        )
     }
 }
 
@@ -88,29 +126,33 @@ private fun OperationRow(op: SyncOperation, onRetry: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(colors.backgroundSecondary)
-            .padding(12.dp),
+            .clip(PosTheme.shapes.lg)
+            .background(colors.surfaceElevated)
+            .border(width = 1.dp, color = colors.separator, shape = PosTheme.shapes.lg)
+            .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         when (op.state) {
-            SyncOperationState.PENDING -> Box(Modifier.size(8.dp).clip(RoundedCornerShape(50)).background(colors.warning))
+            SyncOperationState.PENDING -> Box(
+                Modifier.size(10.dp).clip(CircleShape).background(colors.warning),
+            )
             SyncOperationState.FAILED -> Text("⚠", style = PosTheme.typography.body, color = colors.destructive)
         }
-        Spacer(Modifier.size(8.dp))
+        Spacer(Modifier.size(12.dp))
         Column(Modifier.weight(1f)) {
-            Text("Order ${(op as? SyncOperation.CreateOrder)?.orderId?.value?.takeLast(8) ?: op.id.take(8)}", style = PosTheme.typography.headline, color = colors.labelPrimary)
-            Text("Retries: ${op.retryCount}${op.lastError?.let { " · $it" } ?: ""}", style = PosTheme.typography.footnote, color = colors.labelSecondary)
+            Text(
+                "Order #${(op as? SyncOperation.CreateOrder)?.orderId?.value?.takeLast(8) ?: op.id.take(8)}",
+                style = PosTheme.typography.headline,
+                color = colors.labelPrimary,
+            )
+            Text(
+                "Retries: ${op.retryCount}${op.lastError?.let { " · $it" } ?: ""}",
+                style = PosTheme.typography.footnote,
+                color = colors.labelSecondary,
+            )
         }
         if (op.state == SyncOperationState.FAILED) {
             TertiaryButton(text = "Retry", onClick = onRetry)
         }
     }
-}
-
-@Suppress("unused")
-@Composable
-private fun Divider() {
-    val colors = PosTheme.colors
-    Box(Modifier.fillMaxWidth().height(1.dp).background(colors.separator))
 }

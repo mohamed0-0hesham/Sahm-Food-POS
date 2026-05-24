@@ -1,7 +1,16 @@
 package com.coditria.footpos.presentation.catalog
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,21 +29,26 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.coditria.footpos.core.designsystem.PosMotion
 import com.coditria.footpos.core.designsystem.PosTheme
 import com.coditria.footpos.core.designsystem.components.CategoryPill
 import com.coditria.footpos.core.designsystem.components.EmptyState
+import com.coditria.footpos.core.designsystem.components.IconChip
 import com.coditria.footpos.core.designsystem.components.ProductThumbnail
 import com.coditria.footpos.core.designsystem.components.SearchField
+import com.coditria.footpos.core.designsystem.shapes
 import com.coditria.footpos.core.designsystem.typography
 import com.coditria.footpos.domain.model.Product
 import com.coditria.footpos.presentation.cart.CartSidePanel
@@ -54,7 +68,7 @@ fun CatalogScreen(
 
     Row(Modifier.fillMaxSize().background(colors.backgroundPrimary)) {
         Column(Modifier.weight(1f)) {
-            CatalogTopBar(
+            CatalogHeader(
                 query = state.searchQuery,
                 onQueryChange = catalogVm::onSearchChanged,
                 onOpenSync = onOpenSyncStatus,
@@ -64,30 +78,37 @@ fun CatalogScreen(
                 selected = state.selectedCategory,
                 onSelect = catalogVm::onCategorySelected,
             )
-            // Map product id → quantity in cart, so each card can show a badge.
             val cartQuantities = state.cart.items.associate { it.product.id.value to it.quantity }
-            if (state.visibleProducts.isEmpty()) {
-                CatalogEmptyState(
-                    hasAnyProducts = state.products.isNotEmpty(),
-                    hasQuery = state.searchQuery.isNotBlank(),
-                    modifier = Modifier.weight(1f),
-                )
-            } else {
-                ProductGrid(
-                    products = state.visibleProducts,
-                    cartQuantities = cartQuantities,
-                    isTablet = isTablet,
-                    onTap = catalogVm::onProductTapped,
-                    onLongPress = catalogVm::onProductLongPressed,
-                    modifier = Modifier.weight(1f),
-                )
+            Box(Modifier.weight(1f)) {
+                if (state.visibleProducts.isEmpty()) {
+                    CatalogEmptyState(
+                        hasAnyProducts = state.products.isNotEmpty(),
+                        hasQuery = state.searchQuery.isNotBlank(),
+                    )
+                } else {
+                    ProductGrid(
+                        products = state.visibleProducts,
+                        cartQuantities = cartQuantities,
+                        isTablet = isTablet,
+                        onTap = catalogVm::onProductTapped,
+                        onLongPress = catalogVm::onProductLongPressed,
+                    )
+                }
             }
-            if (!isTablet && state.cart.items.isNotEmpty()) {
-                FloatingCartBar(
-                    itemCount = state.cart.items.sumOf { it.quantity },
-                    total = state.cart.total.format(),
-                    onClick = onOpenCartPhone,
-                )
+            // Phone-only floating cart bar — animated entrance so adding the first
+            // item feels like the cart "rises" into view rather than just appearing.
+            if (!isTablet) {
+                AnimatedVisibility(
+                    visible = state.cart.items.isNotEmpty(),
+                    enter = slideInVertically(PosMotion.tweenStandard()) { it } + fadeIn(PosMotion.tweenStandard()),
+                    exit = slideOutVertically(PosMotion.tweenFast()) { it } + fadeOut(PosMotion.tweenFast()),
+                ) {
+                    FloatingCartBar(
+                        itemCount = state.cart.items.sumOf { it.quantity },
+                        total = state.cart.total.format(),
+                        onClick = onOpenCartPhone,
+                    )
+                }
             }
         }
         if (isTablet) {
@@ -104,34 +125,36 @@ fun CatalogScreen(
 }
 
 @Composable
-private fun CatalogTopBar(
+private fun CatalogHeader(
     query: String,
     onQueryChange: (String) -> Unit,
     onOpenSync: () -> Unit,
 ) {
-    Row(
-        Modifier.fillMaxWidth().padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    val colors = PosTheme.colors
+    Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 12.dp)) {
+        // Greeting + sync action. Large title above the search bar is now standard
+        // across modern shopping apps (Wolt, Instacart, Glovo).
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "Discover",
+                    style = PosTheme.typography.largeTitle,
+                    color = colors.labelPrimary,
+                )
+                Text(
+                    "Today's catalog",
+                    style = PosTheme.typography.subhead,
+                    color = colors.labelSecondary,
+                )
+            }
+            IconChip(glyph = "☁", onClick = onOpenSync)
+        }
+        Spacer(Modifier.height(16.dp))
         SearchField(
             value = query,
             onValueChange = onQueryChange,
             placeholder = "Search products",
-            modifier = Modifier.weight(1f),
         )
-        Spacer(Modifier.size(12.dp))
-        SyncIconButton(onClick = onOpenSync)
-    }
-}
-
-@Composable
-private fun SyncIconButton(onClick: () -> Unit) {
-    val colors = PosTheme.colors
-    Box(
-        Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(colors.backgroundSecondary).clickable { onClick() },
-        contentAlignment = Alignment.Center,
-    ) {
-        Text("☁", style = PosTheme.typography.title3, color = colors.labelPrimary)
     }
 }
 
@@ -142,7 +165,7 @@ private fun CategoryStrip(
     onSelect: (String) -> Unit,
 ) {
     LazyRow(
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -152,12 +175,6 @@ private fun CategoryStrip(
     }
 }
 
-/**
- * Tri-state empty UI. We distinguish between an unfiltered empty catalog (the local
- * cache is genuinely empty — likely a first-launch refresh still in flight or an
- * offline first launch) and an empty filtered view (the cashier's query / category
- * didn't match anything).
- */
 @Composable
 private fun CatalogEmptyState(
     hasAnyProducts: Boolean,
@@ -166,19 +183,19 @@ private fun CatalogEmptyState(
 ) {
     when {
         !hasAnyProducts -> EmptyState(
-            glyph = "🍽",
-            title = "No products yet",
-            message = "We couldn't load the catalog. Check your connection — products will appear here once the device is online.",
+            glyph = "▢",
+            title = "Catalog is empty",
+            message = "We couldn't load any products. Check your connection — items will appear as soon as the device is online.",
             modifier = modifier,
         )
         hasQuery -> EmptyState(
-            glyph = "🔍",
+            glyph = "⌕",
             title = "No matches",
             message = "Try a different search term or clear the filter.",
             modifier = modifier,
         )
         else -> EmptyState(
-            glyph = "📂",
+            glyph = "▦",
             title = "Nothing in this category",
             message = "Pick another category to see more products.",
             modifier = modifier,
@@ -197,9 +214,9 @@ private fun ProductGrid(
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(if (isTablet) 4 else 2),
-        contentPadding = PaddingValues(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
         modifier = modifier.fillMaxSize(),
     ) {
         items(products, key = { it.id.value }) { product ->
@@ -221,19 +238,38 @@ fun ProductCard(
     onLongPress: () -> Unit,
 ) {
     val colors = PosTheme.colors
-    // Wrap the card in an outer Box so the quantity badge can float over the top-right corner.
-    Box {
-        Column(
-            Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(colors.backgroundTertiary)
-                .clickable(onClick = onTap),
-        ) {
-            ProductThumbnail(
-                product = product,
-                modifier = Modifier.fillMaxWidth().aspectRatio(1f),
-            )
-            Column(Modifier.padding(12.dp)) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.97f else 1f,
+        animationSpec = PosMotion.tweenFast(),
+        label = "card-press",
+    )
+    Box(
+        Modifier
+            .scale(scale)
+            .clip(PosTheme.shapes.lg)
+            .background(colors.surfaceElevated)
+            .border(width = 1.dp, color = colors.separator, shape = PosTheme.shapes.lg)
+            .clickable(interactionSource = interaction, indication = null, onClick = onTap),
+    ) {
+        Column {
+            Box {
+                ProductThumbnail(
+                    product = product,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
+                        .clip(PosTheme.shapes.lg),
+                )
+                if (quantityInCart > 0) {
+                    QuantityBadge(
+                        count = quantityInCart,
+                        modifier = Modifier.align(Alignment.TopEnd).padding(10.dp),
+                    )
+                }
+            }
+            Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
                 Text(
                     product.name,
                     style = PosTheme.typography.headline,
@@ -241,19 +277,24 @@ fun ProductCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Spacer(Modifier.height(2.dp))
-                Text(product.price.format(), style = PosTheme.typography.subhead, color = colors.labelSecondary)
+                product.category?.let {
+                    Text(
+                        it,
+                        style = PosTheme.typography.caption1,
+                        color = colors.labelTertiary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    product.price.format(),
+                    style = PosTheme.typography.title3,
+                    color = colors.accent,
+                )
             }
         }
-        if (quantityInCart > 0) {
-            QuantityBadge(
-                count = quantityInCart,
-                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
-            )
-        }
     }
-    // Long-press handler is wired upstream — kept in the signature for the upcoming
-    // combinedClickable migration so callers don't need to change later.
     @Suppress("UNUSED_EXPRESSION") onLongPress
 }
 
@@ -262,31 +303,64 @@ private fun QuantityBadge(count: Int, modifier: Modifier = Modifier) {
     val colors = PosTheme.colors
     Box(
         modifier
-            .clip(RoundedCornerShape(50))
-            .background(colors.accent)
-            .padding(horizontal = 8.dp, vertical = 2.dp),
+            .size(28.dp)
+            .clip(CircleShape)
+            .background(colors.labelPrimary),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             count.toString(),
             style = PosTheme.typography.subhead,
-            color = androidx.compose.ui.graphics.Color.White,
+            color = colors.labelInverted,
         )
     }
 }
 
+/**
+ * Phone-only floating cart pill. Sits above the tab bar with a clear CTA chevron
+ * so the cashier always sees a path to checkout from anywhere in the catalog.
+ */
 @Composable
 private fun FloatingCartBar(itemCount: Int, total: String, onClick: () -> Unit) {
     val colors = PosTheme.colors
-    Row(
+    Box(
         Modifier
             .fillMaxWidth()
-            .background(colors.accent)
-            .clickable(onClick = onClick)
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .background(colors.backgroundPrimary)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Text("View Cart ($itemCount)", style = PosTheme.typography.headline, color = androidx.compose.ui.graphics.Color.White, modifier = Modifier.weight(1f))
-        Text(total, style = PosTheme.typography.headline, color = androidx.compose.ui.graphics.Color.White)
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(PosTheme.shapes.lg)
+                .background(colors.labelPrimary)
+                .clickable(onClick = onClick)
+                .padding(horizontal = 18.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(colors.accent),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    itemCount.toString(),
+                    style = PosTheme.typography.subhead,
+                    color = colors.onAccent,
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Text(
+                "View order",
+                style = PosTheme.typography.headline,
+                color = colors.labelInverted,
+                modifier = Modifier.weight(1f),
+            )
+            Text(total, style = PosTheme.typography.headline, color = colors.labelInverted)
+            Spacer(Modifier.width(6.dp))
+            Text("›", style = PosTheme.typography.title3, color = colors.labelInverted)
+        }
     }
 }
