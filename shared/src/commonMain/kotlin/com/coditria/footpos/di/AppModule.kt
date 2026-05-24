@@ -41,6 +41,8 @@ import com.coditria.footpos.domain.usecase.ClearCartUseCase
 import com.coditria.footpos.domain.usecase.CompleteOrderUseCase
 import com.coditria.footpos.domain.usecase.GetOrderByIdUseCase
 import com.coditria.footpos.domain.usecase.GetSettingsUseCase
+import com.coditria.footpos.domain.usecase.ObserveTodayStatsUseCase
+import com.coditria.footpos.domain.usecase.ObserveTopSellersUseCase
 import com.coditria.footpos.domain.usecase.ObserveAllSyncUseCase
 import com.coditria.footpos.domain.usecase.ObserveCartUseCase
 import com.coditria.footpos.domain.usecase.ObserveCategoriesUseCase
@@ -148,14 +150,16 @@ val sharedModule = module {
     factoryOf(::SignInWithGoogleUseCase)
     factoryOf(::SignInWithAppleUseCase)
     factoryOf(::SignOutUseCase)
+    factoryOf(::ObserveTopSellersUseCase)
+    factoryOf(::ObserveTodayStatsUseCase)
 
-    factory { CatalogViewModel(get(), get(), get(), get(), get()) }
+    factory { CatalogViewModel(get(), get(), get(), get(), get(), get(), get()) }
     factory { CartViewModel(get(), get(), get(), get(), get(), get(), get()) }
     factory { CheckoutViewModel(get(), get(), get(), get(), get()) }
     factory { OrderHistoryViewModel(get()) }
     factory { (orderId: com.coditria.footpos.domain.model.OrderId) -> OrderDetailViewModel(orderId, get(), get(), get(), get()) }
     factory { SyncStatusViewModel(get(), get(), get()) }
-    factory { SettingsViewModel(get(), get(), get(), get(), get()) }
+    factory { SettingsViewModel(get(), get(), get(), get(), get(), get()) }
     factory { RootViewModel(get(), get(), get(), get(), get()) }
     factory { AuthViewModel(get(), get(), get(), get(), get(), get()) }
 }

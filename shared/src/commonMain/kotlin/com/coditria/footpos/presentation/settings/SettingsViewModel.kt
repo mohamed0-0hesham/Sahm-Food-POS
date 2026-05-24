@@ -4,7 +4,9 @@ import androidx.lifecycle.viewModelScope
 import com.coditria.footpos.domain.model.AppSettings
 import com.coditria.footpos.domain.model.Currency
 import com.coditria.footpos.domain.model.TaxRate
+import com.coditria.footpos.domain.model.TodayStats
 import com.coditria.footpos.domain.usecase.ObserveSettingsUseCase
+import com.coditria.footpos.domain.usecase.ObserveTodayStatsUseCase
 import com.coditria.footpos.domain.usecase.UpdateAutoPrintUseCase
 import com.coditria.footpos.domain.usecase.UpdateCurrencyUseCase
 import com.coditria.footpos.domain.usecase.UpdateStoreNameUseCase
@@ -15,11 +17,13 @@ import kotlinx.coroutines.flow.onEach
 
 data class SettingsState(
     val settings: AppSettings = AppSettings.DEFAULT,
+    val today: TodayStats? = null,
     val loading: Boolean = true,
 )
 
 class SettingsViewModel(
     observeSettings: ObserveSettingsUseCase,
+    observeTodayStats: ObserveTodayStatsUseCase,
     private val updateStoreName: UpdateStoreNameUseCase,
     private val updateTaxRate: UpdateTaxRateUseCase,
     private val updateCurrency: UpdateCurrencyUseCase,
@@ -31,6 +35,10 @@ class SettingsViewModel(
     init {
         observeSettings()
             .onEach { s -> updateState { it.copy(settings = s, loading = false) } }
+            .launchIn(viewModelScope)
+
+        observeTodayStats()
+            .onEach { stats -> updateState { it.copy(today = stats) } }
             .launchIn(viewModelScope)
     }
 

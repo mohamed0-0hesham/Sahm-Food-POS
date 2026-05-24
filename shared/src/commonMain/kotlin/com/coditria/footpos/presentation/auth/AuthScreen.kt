@@ -2,7 +2,6 @@ package com.coditria.footpos.presentation.auth
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -17,7 +16,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,9 +34,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.KeyboardType
@@ -66,6 +70,7 @@ fun AuthScreen(
     val state by vm.state.collectAsStateWithLifecycle()
     val colors = PosTheme.colors
     val spacing = PosTheme.spacing
+    var passwordVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(vm) {
         vm.effects.collectLatest { effect ->
@@ -79,49 +84,36 @@ fun AuthScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(colors.backgroundPrimary)
+            .warmGradientCorner(accent = colors.accent)
             .statusBarsPadding()
             .imePadding()
             .verticalScroll(rememberScrollState())
             .padding(PaddingValues(horizontal = spacing.xl, vertical = spacing.lg)),
-        horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
-        Spacer(Modifier.height(spacing.xxxl))
+        BrandHeader()
+        Spacer(Modifier.height(spacing.xl))
 
-        // Brand tile — mirrors the splash monogram so the launch → auth flow feels
-        // continuous. Static here (no rotation) to keep focus on the form.
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(PosTheme.shapes.md)
-                .background(colors.accent),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("S", style = PosTheme.typography.title2, color = colors.onAccent)
-        }
-
-        Spacer(Modifier.height(spacing.lg))
-
-        // Headline tracks the current mode; AnimatedContent gives a quick crossfade
-        // so the transition reads as one app, not two screens.
+        // Headline crossfades when the mode flips so the transition reads as one
+        // animated experience rather than two separate screens.
         AnimatedContent(
             targetState = state.mode,
             transitionSpec = {
-                (fadeIn(PosMotion.tweenStandard()) togetherWith fadeOut(PosMotion.tweenFast()))
+                fadeIn(PosMotion.tweenStandard()) togetherWith fadeOut(PosMotion.tweenFast())
             },
             label = "auth-headline",
         ) { mode ->
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
-                    if (mode == AuthMode.SignIn) "Welcome back" else "Create your account",
-                    style = PosTheme.typography.largeTitle,
+                    if (mode == AuthMode.SignIn) "Welcome back" else "Create account",
+                    style = PosTheme.typography.display,
                     color = colors.labelPrimary,
                 )
                 Text(
                     if (mode == AuthMode.SignIn)
-                        "Sign in to continue taking orders."
+                        "Sign in to continue to your store."
                     else
-                        "Set up an account to start running shifts.",
+                        "Sign up to start ringing up orders.",
                     style = PosTheme.typography.body,
                     color = colors.labelSecondary,
                 )
@@ -130,41 +122,60 @@ fun AuthScreen(
 
         Spacer(Modifier.height(spacing.md))
 
-        ModeToggle(mode = state.mode, onModeChange = vm::onModeChanged)
-
-        // Display name slot animates in/out cleanly when toggling Sign Up.
         AnimatedVisibility(
             visible = state.mode == AuthMode.SignUp,
             enter = fadeIn(PosMotion.tweenStandard()) + expandVertically(PosMotion.tweenStandard()),
             exit = fadeOut(PosMotion.tweenFast()) + shrinkVertically(PosMotion.tweenFast()),
         ) {
             Column {
-                AuthTextField(
+                FilledField(
+                    label = "Display name",
                     value = state.displayName,
                     onValueChange = vm::onDisplayNameChanged,
-                    placeholder = "Display name",
-                    label = "Name",
+                    placeholder = "Your name",
                     keyboard = KeyboardType.Text,
                 )
                 Spacer(Modifier.height(spacing.md))
             }
         }
 
-        AuthTextField(
+        FilledField(
+            label = "Email",
             value = state.email,
             onValueChange = vm::onEmailChanged,
-            placeholder = "you@store.com",
-            label = "Email",
+            placeholder = "manager@sahm.food",
             keyboard = KeyboardType.Email,
         )
 
-        AuthTextField(
+        FilledField(
+            label = "Password",
             value = state.password,
             onValueChange = vm::onPasswordChanged,
             placeholder = "••••••••",
-            label = "Password",
             keyboard = KeyboardType.Password,
-            visualTransformation = PasswordVisualTransformation(),
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            trailing = {
+                Text(
+                    if (passwordVisible) "Hide" else "Show",
+                    style = PosTheme.typography.subhead,
+                    color = colors.labelSecondary,
+                    modifier = Modifier
+                        .clickable { passwordVisible = !passwordVisible }
+                        .padding(start = 8.dp),
+                )
+            },
+            // "Forgot?" rides at the top-right of the label row, paired with the field
+            // header — common modern eCommerce pattern, less noisy than below the field.
+            headerTrailing = if (state.mode == AuthMode.SignIn) {
+                {
+                    Text(
+                        "Forgot?",
+                        style = PosTheme.typography.subhead,
+                        color = colors.labelSecondary,
+                        modifier = Modifier.clickable { /* not implemented yet */ },
+                    )
+                }
+            } else null,
         )
 
         AnimatedVisibility(
@@ -178,7 +189,7 @@ fun AuthScreen(
         Spacer(Modifier.height(spacing.xs))
 
         PrimaryButton(
-            text = if (state.mode == AuthMode.SignIn) "Sign In" else "Create Account",
+            text = if (state.mode == AuthMode.SignIn) "Sign in" else "Create account",
             onClick = vm::onSubmit,
             enabled = state.canSubmit,
             loading = state.submitting,
@@ -226,90 +237,104 @@ fun AuthScreen(
             }
         }
 
-        Spacer(Modifier.height(spacing.xl))
+        Spacer(Modifier.height(spacing.lg))
+        FooterModeSwitch(
+            mode = state.mode,
+            onSwitch = {
+                vm.onModeChanged(if (state.mode == AuthMode.SignIn) AuthMode.SignUp else AuthMode.SignIn)
+            },
+        )
+        Spacer(Modifier.height(spacing.lg))
     }
 }
 
 @Composable
-private fun ModeToggle(mode: AuthMode, onModeChange: (AuthMode) -> Unit) {
+private fun BrandHeader() {
+    val colors = PosTheme.colors
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(PosTheme.shapes.md)
+                .background(colors.accent),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("S", style = PosTheme.typography.title3, color = colors.onAccent)
+        }
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text("Sahm Food", style = PosTheme.typography.headline, color = colors.labelPrimary)
+            Text("POINT OF SALE", style = PosTheme.typography.label, color = colors.labelTertiary)
+        }
+    }
+}
+
+@Composable
+private fun FooterModeSwitch(mode: AuthMode, onSwitch: () -> Unit) {
     val colors = PosTheme.colors
     Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(PosTheme.shapes.md)
-            .background(colors.backgroundSecondary)
-            .padding(4.dp),
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        ModeTab("Sign In", selected = mode == AuthMode.SignIn) { onModeChange(AuthMode.SignIn) }
-        ModeTab("Sign Up", selected = mode == AuthMode.SignUp) { onModeChange(AuthMode.SignUp) }
+        Text(
+            if (mode == AuthMode.SignIn) "Don't have an account?" else "Already have an account?",
+            style = PosTheme.typography.body,
+            color = colors.labelSecondary,
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            if (mode == AuthMode.SignIn) "Sign up" else "Sign in",
+            style = PosTheme.typography.headline,
+            color = colors.accent,
+            modifier = Modifier.clickable(onClick = onSwitch),
+        )
     }
 }
 
 @Composable
-private fun RowScope.ModeTab(
+private fun FilledField(
     label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val colors = PosTheme.colors
-    val bg by animateColorAsState(
-        targetValue = if (selected) colors.backgroundPrimary else Color.Transparent,
-        animationSpec = PosMotion.tweenStandard(),
-        label = "tab-bg",
-    )
-    val fg by animateColorAsState(
-        targetValue = if (selected) colors.labelPrimary else colors.labelSecondary,
-        animationSpec = PosMotion.tweenStandard(),
-        label = "tab-fg",
-    )
-    Box(
-        Modifier
-            .weight(1f)
-            .clip(PosTheme.shapes.sm)
-            .background(bg)
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(label, style = PosTheme.typography.headline, color = fg)
-    }
-}
-
-@Composable
-private fun AuthTextField(
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String,
-    label: String,
     keyboard: KeyboardType,
     visualTransformation: VisualTransformation = VisualTransformation.None,
+    trailing: (@Composable () -> Unit)? = null,
+    headerTrailing: (@Composable () -> Unit)? = null,
 ) {
     val colors = PosTheme.colors
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(label, style = PosTheme.typography.caption1, color = colors.labelSecondary)
-        Box(
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = PosTheme.typography.caption1, color = colors.labelSecondary, modifier = Modifier.weight(1f))
+            if (headerTrailing != null) headerTrailing()
+        }
+        Row(
             Modifier
                 .fillMaxWidth()
                 .clip(PosTheme.shapes.md)
-                .background(colors.backgroundPrimary)
-                .border(width = 1.dp, color = colors.separatorStrong, shape = PosTheme.shapes.md)
+                .background(colors.backgroundSecondary)
                 .padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (value.isEmpty()) {
-                Text(placeholder, style = PosTheme.typography.body, color = colors.labelTertiary)
+            Box(Modifier.weight(1f)) {
+                if (value.isEmpty()) {
+                    Text(placeholder, style = PosTheme.typography.body, color = colors.labelTertiary)
+                }
+                BasicTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    keyboardOptions = KeyboardOptions(keyboardType = keyboard),
+                    visualTransformation = visualTransformation,
+                    cursorBrush = SolidColor(colors.accent),
+                    singleLine = true,
+                    textStyle = LocalTextStyle.current.merge(
+                        PosTheme.typography.body.copy(color = colors.labelPrimary)
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
-            BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
-                keyboardOptions = KeyboardOptions(keyboardType = keyboard),
-                visualTransformation = visualTransformation,
-                cursorBrush = SolidColor(colors.accent),
-                singleLine = true,
-                textStyle = LocalTextStyle.current.merge(
-                    PosTheme.typography.body.copy(color = colors.labelPrimary)
-                ),
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (trailing != null) trailing()
         }
     }
 }
@@ -379,4 +404,18 @@ private fun SocialButton(
             Text(label, style = PosTheme.typography.headline, color = contentColor)
         }
     }
+}
+
+/**
+ * Soft radial wash of the accent in the top-right corner. Matches splash so the
+ * launch → auth handoff feels continuous, and gives the otherwise white screen
+ * warmth without painting all the chrome.
+ */
+private fun Modifier.warmGradientCorner(accent: Color): Modifier = this.drawWithCache {
+    val brush = Brush.radialGradient(
+        colors = listOf(accent.copy(alpha = 0.16f), Color.Transparent),
+        center = Offset(size.width * 0.95f, size.height * 0.08f),
+        radius = size.minDimension * 0.75f,
+    )
+    onDrawBehind { drawRect(brush) }
 }

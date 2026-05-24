@@ -43,9 +43,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.coditria.footpos.core.designsystem.PosMotion
 import com.coditria.footpos.core.designsystem.PosTheme
+import androidx.compose.foundation.shape.CircleShape
 import com.coditria.footpos.core.designsystem.components.CategoryPill
 import com.coditria.footpos.core.designsystem.components.EmptyState
-import com.coditria.footpos.core.designsystem.components.IconChip
 import com.coditria.footpos.core.designsystem.components.ProductThumbnail
 import com.coditria.footpos.core.designsystem.components.SearchField
 import com.coditria.footpos.core.designsystem.shapes
@@ -68,17 +68,31 @@ fun CatalogScreen(
 
     Row(Modifier.fillMaxSize().background(colors.backgroundPrimary)) {
         Column(Modifier.weight(1f)) {
+            val cartQuantities = state.cart.items.associate { it.product.id.value to it.quantity }
             CatalogHeader(
                 query = state.searchQuery,
+                online = state.online,
                 onQueryChange = catalogVm::onSearchChanged,
                 onOpenSync = onOpenSyncStatus,
             )
+            // Best Sellers ride above the category strip on the phone layout — the
+            // tablet keeps the strip-then-grid composition since the side-panel
+            // already provides a hero focal area on the right.
+            if (!isTablet && state.bestSellers.isNotEmpty()) {
+                Spacer(Modifier.size(8.dp))
+                BestSellersCarousel(
+                    sellers = state.bestSellers,
+                    cartQuantities = cartQuantities,
+                    onAdd = catalogVm::onProductTapped,
+                    onLongPress = catalogVm::onProductLongPressed,
+                )
+                Spacer(Modifier.size(12.dp))
+            }
             CategoryStrip(
                 categories = state.categories,
                 selected = state.selectedCategory,
                 onSelect = catalogVm::onCategorySelected,
             )
-            val cartQuantities = state.cart.items.associate { it.product.id.value to it.quantity }
             Box(Modifier.weight(1f)) {
                 if (state.visibleProducts.isEmpty()) {
                     CatalogEmptyState(
@@ -127,13 +141,12 @@ fun CatalogScreen(
 @Composable
 private fun CatalogHeader(
     query: String,
+    online: Boolean,
     onQueryChange: (String) -> Unit,
     onOpenSync: () -> Unit,
 ) {
     val colors = PosTheme.colors
     Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 12.dp)) {
-        // Greeting + sync action. Large title above the search bar is now standard
-        // across modern shopping apps (Wolt, Instacart, Glovo).
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(
@@ -147,13 +160,42 @@ private fun CatalogHeader(
                     color = colors.labelSecondary,
                 )
             }
-            IconChip(glyph = "☁", onClick = onOpenSync)
+            OnlinePill(online = online, onClick = onOpenSync)
         }
         Spacer(Modifier.height(16.dp))
         SearchField(
             value = query,
             onValueChange = onQueryChange,
             placeholder = "Search products",
+        )
+    }
+}
+
+/**
+ * Status pill that doubles as the sync-sheet entry point. Green dot when online,
+ * amber when offline — gives cashiers an immediate read on connectivity (which is
+ * the single biggest source of "is something broken?" confusion in POS).
+ */
+@Composable
+private fun OnlinePill(online: Boolean, onClick: () -> Unit) {
+    val colors = PosTheme.colors
+    val dot = if (online) colors.success else colors.warning
+    Row(
+        Modifier
+            .clip(PosTheme.shapes.pill)
+            .background(colors.backgroundSecondary)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier.size(8.dp).clip(CircleShape).background(dot),
+        )
+        Spacer(Modifier.size(8.dp))
+        Text(
+            if (online) "Online" else "Offline",
+            style = PosTheme.typography.subhead,
+            color = colors.labelPrimary,
         )
     }
 }

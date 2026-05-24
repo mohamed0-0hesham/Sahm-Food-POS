@@ -5,10 +5,12 @@ import com.coditria.footpos.core.navigation.Destination
 import com.coditria.footpos.core.navigation.Navigator
 import com.coditria.footpos.domain.model.Order
 import com.coditria.footpos.domain.model.Product
+import com.coditria.footpos.domain.network.NetworkMonitor
 import com.coditria.footpos.domain.usecase.AddItemToCartUseCase
 import com.coditria.footpos.domain.usecase.ObserveCartUseCase
 import com.coditria.footpos.domain.usecase.ObserveCategoriesUseCase
 import com.coditria.footpos.domain.usecase.ObserveProductsUseCase
+import com.coditria.footpos.domain.usecase.ObserveTopSellersUseCase
 import com.coditria.footpos.presentation.shared.MviViewModel
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
@@ -21,6 +23,9 @@ data class CatalogState(
     val searchQuery: String = "",
     val cart: Order = Order.newDraft(),
     val loading: Boolean = true,
+    val online: Boolean = true,
+    /** Top sellers as (product, units sold), highest first. */
+    val bestSellers: List<Pair<Product, Int>> = emptyList(),
 ) {
     val visibleProducts: List<Product>
         get() {
@@ -42,6 +47,8 @@ class CatalogViewModel(
     observeProducts: ObserveProductsUseCase,
     observeCategories: ObserveCategoriesUseCase,
     observeCart: ObserveCartUseCase,
+    observeTopSellers: ObserveTopSellersUseCase,
+    networkMonitor: NetworkMonitor,
     private val addToCart: AddItemToCartUseCase,
     private val navigator: Navigator,
 ) : MviViewModel<CatalogState, CatalogEffect>() {
@@ -49,6 +56,8 @@ class CatalogViewModel(
     override fun initialState() = CatalogState()
 
     init {
+        // Catalog + cart + categories drive the bulk of the UI; combine them so a
+        // single emission rebuilds the view cleanly with consistent state.
         combine(
             observeProducts(),
             observeCategories(),
@@ -61,9 +70,21 @@ class CatalogViewModel(
                 loading = false,
                 selectedCategory = currentState.selectedCategory,
                 searchQuery = currentState.searchQuery,
+                online = currentState.online,
+                bestSellers = currentState.bestSellers,
             )
         }
             .onEach { updateState { _ -> it } }
+            .launchIn(viewModelScope)
+
+        // Hot streams that don't participate in the bulk combine — fold their values
+        // into state without triggering a full rebuild on every emission.
+        networkMonitor.isOnline
+            .onEach { online -> updateState { it.copy(online = online) } }
+            .launchIn(viewModelScope)
+
+        observeTopSellers(limit = 5)
+            .onEach { sellers -> updateState { it.copy(bestSellers = sellers) } }
             .launchIn(viewModelScope)
     }
 

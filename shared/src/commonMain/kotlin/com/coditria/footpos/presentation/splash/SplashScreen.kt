@@ -19,7 +19,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.coditria.footpos.core.designsystem.PosTheme
 import com.coditria.footpos.core.designsystem.shapes
@@ -28,22 +32,27 @@ import com.coditria.footpos.core.designsystem.typography
 @Composable
 fun SplashScreen() {
     val colors = PosTheme.colors
-    Column(
-        Modifier.fillMaxSize().background(colors.backgroundPrimary),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(colors.backgroundPrimary)
+            .warmGradientCorner(accent = colors.accent),
+        contentAlignment = Alignment.Center,
     ) {
-        // Brand monogram. A square of accent color with a soft rotation animation —
-        // gives the launch screen movement without a literal spinner.
-        SpinningMonogram()
-        Spacer(Modifier.size(28.dp))
-        Text("Sahm Food", style = PosTheme.typography.display, color = colors.labelPrimary)
-        Spacer(Modifier.size(4.dp))
-        Text(
-            "POINT OF SALE",
-            style = PosTheme.typography.label,
-            color = colors.labelTertiary,
-        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            SpinningMonogram()
+            Spacer(Modifier.size(24.dp))
+            Text("Sahm Food", style = PosTheme.typography.display, color = colors.labelPrimary)
+            Spacer(Modifier.size(6.dp))
+            Text(
+                "POINT OF SALE",
+                style = PosTheme.typography.label,
+                color = colors.labelTertiary,
+            )
+        }
     }
 }
 
@@ -62,7 +71,7 @@ private fun SpinningMonogram() {
     )
     Box(
         modifier = Modifier
-            .size(72.dp)
+            .size(80.dp)
             .rotate(angle)
             .clip(PosTheme.shapes.lg)
             .background(colors.accent),
@@ -76,4 +85,18 @@ private fun SpinningMonogram() {
             modifier = Modifier.rotate(-angle),
         )
     }
+}
+
+/**
+ * Soft radial wash of the accent in the top-right corner — gives the surface warmth
+ * without painting the whole screen. Matches the auth-screen gradient so the launch →
+ * auth handoff feels continuous.
+ */
+private fun Modifier.warmGradientCorner(accent: Color): Modifier = this.drawWithCache {
+    val brush = Brush.radialGradient(
+        colors = listOf(accent.copy(alpha = 0.18f), Color.Transparent),
+        center = Offset(size.width * 0.95f, size.height * 0.10f),
+        radius = size.minDimension * 0.85f,
+    )
+    onDrawBehind { drawRect(brush) }
 }
