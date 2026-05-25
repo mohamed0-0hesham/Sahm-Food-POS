@@ -13,6 +13,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.ColorFilter
+import coil3.compose.AsyncImage
+import org.jetbrains.compose.resources.ExperimentalResourceApi
+import sahmfood.shared.generated.resources.Res
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,6 +28,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -244,14 +252,40 @@ private fun ModalContent(modal: Destination.Modal, navigator: Navigator) {
 
 // ---- Tab bar ---------------------------------------------------------------
 
-private data class TabSpec(val key: TabKey, val label: String, val glyph: String)
-
-private val tabSpecs = listOf(
-    TabSpec(TabKey.Sell, "Shop", "◧"),
-    TabSpec(TabKey.Orders, "Orders", "▤"),
-    TabSpec(TabKey.Settings, "Account", "◉"),
+private data class TabSpec(
+    val key: TabKey,
+    val label: String,
+    /** Relative path under `composeResources/files/` — passed to [Res.getUri]. */
+    val iconFile: String,
 )
 
+// Bottom-nav SVG icons live in `composeResources/files/` and are decoded by
+// Coil 3's SVG decoder (added via `coil-svg`). This sidesteps the issue that
+// Compose Multiplatform's built-in SVG painter is iOS-only — Coil supports
+// both platforms uniformly and tints via the standard ColorFilter pipeline.
+private val tabSpecs = listOf(
+    TabSpec(TabKey.Sell, "Shop", "files/shop.svg"),
+    TabSpec(TabKey.Orders, "Orders", "files/orders.svg"),
+    TabSpec(TabKey.Settings, "Account", "files/account.svg"),
+)
+
+/**
+ * Modern bottom navigation.
+ *
+ * Visual model:
+ *  • The bar itself sits in a hairline-bordered surface that floats above the
+ *    safe-area inset, no shadow noise.
+ *  • The selected tab gets an accent-tinted pill behind its icon (warm halo
+ *    rather than a flat grey), its icon + label tint to accent, and the icon
+ *    nudges up 2dp so the selection reads as "raised".
+ *  • Inactive tabs use the tertiary label color — quiet, but legible.
+ *  • The whole tab item has a press-scale (0.94x) for tactile feedback that
+ *    matches the press behavior on cards elsewhere.
+ *
+ * The Orders badge stays an accent circle, but now lives on the icon corner
+ * with a subtle ring of background-primary so it pops cleanly from the icon
+ * outline rather than blending into it.
+ */
 @Composable
 private fun TabBar(active: TabKey, pendingSyncCount: Long, onSelect: (TabKey) -> Unit) {
     val colors = PosTheme.colors
@@ -261,7 +295,7 @@ private fun TabBar(active: TabKey, pendingSyncCount: Long, onSelect: (TabKey) ->
             .background(colors.backgroundPrimary)
             .border(width = 1.dp, color = colors.separator, shape = androidx.compose.ui.graphics.RectangleShape)
             .navigationBarsPadding()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
     ) {
         Row(
             Modifier.fillMaxWidth(),
@@ -290,49 +324,130 @@ private fun TabItem(
     modifier: Modifier = Modifier,
 ) {
     val colors = PosTheme.colors
-    val fg by animateColorAsState(
-        targetValue = if (selected) colors.labelPrimary else colors.labelTertiary,
+
+    // Color crossfades for icon + label.
+    val activeColor by animateColorAsState(
+        targetValue = if (selected) colors.accent else colors.labelTertiary,
         animationSpec = PosMotion.tweenStandard(),
-        label = "tab-fg",
+        label = "tab-color",
     )
+    // Accent-tinted pill behind the active icon. Animating scale 0→1 is enough
+    // to feel slick without sliding-indicator geometry.
     val pillScale by animateFloatAsState(
         targetValue = if (selected) 1f else 0f,
         animationSpec = PosMotion.tweenStandard(),
-        label = "pill",
+        label = "pill-scale",
     )
+    val pillAlpha by animateFloatAsState(
+        targetValue = if (selected) 1f else 0f,
+        animationSpec = PosMotion.tweenStandard(),
+        label = "pill-alpha",
+    )
+    // Selected icon lifts a hair so the active tab reads as "raised".
+    val iconLift by animateFloatAsState(
+        targetValue = if (selected) -2f else 0f,
+        animationSpec = PosMotion.tweenStandard(),
+        label = "icon-lift",
+    )
+
+    // Tactile press feedback — matches the card scale behavior elsewhere.
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed) 0.94f else 1f,
+        animationSpec = PosMotion.tweenFast(),
+        label = "tab-press",
+    )
+
     Column(
-        modifier
-            .clip(PosTheme.shapes.md)
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
+        modifier = modifier
+            .scale(pressScale)
+            .clip(PosTheme.shapes.lg)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick,
+            )
+            .padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            // Soft pill behind the active tab — a sliding indicator without geometry math.
+        Box(
+            modifier = Modifier
+                .size(width = 56.dp, height = 32.dp)
+                .offset { androidx.compose.ui.unit.IntOffset(0, iconLift.dp.roundToPx()) },
+            contentAlignment = Alignment.Center,
+        ) {
+            // Soft accent halo behind the active icon — same warm gesture as
+            // the splash/auth gradient corners, scaled down to a pill.
             Box(
                 Modifier
-                    .size(width = 44.dp, height = 28.dp)
+                    .matchParentSize()
                     .scale(pillScale)
                     .clip(PosTheme.shapes.pill)
-                    .background(colors.backgroundSecondary),
+                    .background(colors.accent.copy(alpha = 0.12f * pillAlpha)),
             )
-            Box {
-                Text(spec.glyph, style = PosTheme.typography.title3, color = fg)
-                if (badge != null) {
-                    Box(
-                        Modifier
-                            .align(Alignment.TopEnd)
-                            .offset(x = 10.dp, y = (-6).dp)
-                            .clip(CircleShape)
-                            .background(colors.accent)
-                            .padding(horizontal = 5.dp, vertical = 1.dp),
-                    ) {
-                        Text(badge, style = PosTheme.typography.caption2, color = colors.onAccent)
-                    }
+            TabGlyphWithBadge(
+                iconFile = spec.iconFile,
+                tint = activeColor,
+                badge = badge,
+                contentDescription = spec.label,
+            )
+        }
+        Spacer(Modifier.size(2.dp))
+        Text(
+            spec.label,
+            style = PosTheme.typography.caption2,
+            color = activeColor,
+        )
+    }
+}
+
+@OptIn(ExperimentalResourceApi::class)
+@Composable
+private fun TabGlyphWithBadge(
+    iconFile: String,
+    tint: Color,
+    badge: String?,
+    contentDescription: String,
+) {
+    val colors = PosTheme.colors
+    Box {
+        // Coil loads the SVG out of the bundled `composeResources/files/` directory
+        // via `Res.getUri(...)`. SrcIn ColorFilter applies the active tint to the
+        // rasterised SVG so the icon picks up the theme color uniformly — paths
+        // with their own opacity (e.g. the faint bag edges) keep that alpha.
+        AsyncImage(
+            model = Res.getUri(iconFile),
+            contentDescription = contentDescription,
+            colorFilter = ColorFilter.tint(tint, BlendMode.SrcIn),
+            modifier = Modifier.size(22.dp),
+        )
+        if (badge != null) {
+            // Outer ring in the bar's background color so the badge appears to
+            // float above the icon instead of clipping into it — borrowed from
+            // iOS / Material 3 expressive badge guidelines.
+            Box(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = 8.dp, y = (-6).dp)
+                    .clip(CircleShape)
+                    .background(colors.backgroundPrimary)
+                    .padding(2.dp),
+            ) {
+                Box(
+                    Modifier
+                        .clip(CircleShape)
+                        .background(colors.accent)
+                        .padding(horizontal = 5.dp, vertical = 1.dp),
+                ) {
+                    Text(
+                        badge,
+                        style = PosTheme.typography.caption2,
+                        color = colors.onAccent,
+                    )
                 }
             }
         }
-        Text(spec.label, style = PosTheme.typography.caption2, color = fg)
     }
 }
 
